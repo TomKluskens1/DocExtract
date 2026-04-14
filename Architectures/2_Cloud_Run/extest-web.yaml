@@ -1,0 +1,64 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: extest-web
+  namespace: "191306170452"
+  labels:
+    cloud.googleapis.com/location: europe-west1
+  annotations:
+    run.googleapis.com/maxScale: "1"
+spec:
+  template:
+    metadata:
+      annotations:
+        client.knative.dev/user-image: europe-west4-docker.pkg.dev/zinc-wares-488311-a0/thesis-repo/extest-unified:v3
+        run.googleapis.com/client-name: gcloud
+        run.googleapis.com/client-version: 512.0.0
+        autoscaling.knative.dev/maxScale: "1"
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/sessionAffinity: "true"
+        run.googleapis.com/gpu-zonal-redundancy-disabled: "true"
+        run.googleapis.com/cpu-throttling: "false"
+        run.googleapis.com/startup-cpu-boost: "true"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      serviceAccountName: 191306170452-compute@developer.gserviceaccount.com
+      containers:
+      - image: europe-west4-docker.pkg.dev/zinc-wares-488311-a0/thesis-repo/extest-unified:v3
+        ports:
+        - name: http1
+          containerPort: 8080
+        env:
+        - name: ARCHITECTURE
+          value: CLOUD_RUN
+        - name: OLLAMA_BASE_URL
+          value: http://127.0.0.1:11434/v1
+        - name: DB_DIR
+          value: /app/measurements_storage
+        volumeMounts:
+        - name: storage-bucket
+          mountPath: /app/measurements_storage
+        resources:
+          limits:
+            cpu: "4000m"
+            nvidia.com/gpu: "1"
+            memory: 16Gi
+        startupProbe:
+          timeoutSeconds: 240
+          periodSeconds: 240
+          failureThreshold: 3
+          tcpSocket:
+            port: 8080
+      nodeSelector:
+        run.googleapis.com/accelerator: nvidia-l4
+      volumes:
+      - name: storage-bucket
+        csi:
+          driver: gcsfuse.run.googleapis.com
+          readOnly: false
+          volumeAttributes:
+            bucketName: thesis-measurements-bucket
+  traffic:
+  - percent: 100
+    latestRevision: true

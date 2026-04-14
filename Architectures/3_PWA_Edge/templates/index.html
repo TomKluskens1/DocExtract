@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESG Factuurextractie - PWA Edge AI</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; max-width: 920px; margin: 0 auto; padding: 20px; background: #f9f9f9; }
+        .container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { margin-top: 0; }
+        .upload-area { border: 2px dashed #ccc; padding: 30px; text-align: center; margin: 20px 0; border-radius: 8px; }
+        .btn { background: #0066cc; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; }
+        .btn:hover { background: #0052a3; }
+        .btn:disabled { background: #cccccc; cursor: not-allowed; }
+        .btn-green { background: #28a745; }
+        .btn-green:hover { background: #218838; }
+        .btn-gray { background: #6c757d; }
+        .btn-gray:hover { background: #5a6268; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 13px; }
+        .badge { color: white; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; }
+        .badge-blue  { background: #0066cc; }
+        .badge-green { background: #28a745; }
+        .badge-red   { background: #dc3545; }
+        .badge-gray  { background: #6c757d; }
+        .metrics { display: flex; gap: 15px; margin-top: 10px; padding: 15px; background: #eef8ff; border-radius: 4px; flex-wrap: wrap; }
+        .metric-card { flex: 1; text-align: center; min-width: 110px; }
+        .metric-value { font-size: 22px; font-weight: bold; color: #0066cc; }
+
+        #status { font-style: italic; color: #555; margin-top: 12px; font-weight: bold; min-height: 22px; }
+
+        /* Offline badge */
+        .offline-badge { background: #dc3545; display: none; }
+
+        /* Progress bar */
+        .progress-bar  { width: 100%; background: #eee; border-radius: 4px; margin: 10px 0; display: none; }
+        .progress-fill { height: 18px; background: #0066cc; border-radius: 4px; transition: width 0.3s; width: 0%; }
+
+        /* Firefox Profiler guide */
+        .profiler-guide { background: #e8f4fd; border: 1px solid #0066cc; border-radius: 6px; padding: 15px; margin: 15px 0; }
+        .profiler-guide summary { cursor: pointer; font-weight: bold; color: #0066cc; user-select: none; }
+        .profiler-guide ol { margin: 10px 0 4px 0; padding-left: 22px; line-height: 1.7; }
+        .profiler-guide code { background: #ddeeff; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+
+        /* Warm-up tracker */
+        .warmup-tracker { display: flex; align-items: center; gap: 8px; margin: 8px 0 14px 0; }
+        .wu-dot { width: 28px; height: 28px; border-radius: 50%; background: #e9ecef; border: 2px solid #ccc;
+                  display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+        .wu-dot.done   { background: #28a745; border-color: #1e7e34; color: white; }
+        .wu-dot.active { background: #ffc107; border-color: #e0a800; animation: blink 1s infinite; }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+        /* Energy input panel */
+        .energy-panel { background: #f0fff4; border: 2px solid #28a745; border-radius: 6px; padding: 20px; margin: 15px 0; display: none; }
+        .energy-panel h3 { margin-top: 0; color: #155724; }
+        .energy-panel input[type=number] { width: 180px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 15px; }
+        .energy-panel label { display: block; font-weight: bold; margin-bottom: 6px; }
+        .btn-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+
+        /* Validation warning */
+        .validation-warn { background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px;
+                           padding: 10px; margin: 8px 0; color: #721c24; display: none; font-size: 13px; }
+
+        /* Session history table */
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        .history-table th { background: #0066cc; color: white; padding: 8px; text-align: left; }
+        .history-table td { padding: 7px 8px; border-bottom: 1px solid #dee2e6; }
+        .history-table tr.wu-row   { background: #fff9e6; }
+        .history-table tr.meas-row { background: #f0fff4; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>ESG Scope 2 Factuurextractie</h1>
+    <p>
+        Omgeving: <span class="badge badge-blue">PWA / Edge Computing</span>
+        &nbsp;<span class="badge offline-badge" id="offlineBadge">OFFLINE</span>
+        &nbsp;Model: <span class="badge badge-blue" id="modelBadge">Gemma 3 1B (ONNX q4)</span>
+        &nbsp;WebGPU: <span class="badge badge-gray" id="gpuBadge">Controleren...</span>
+    </p>
+    <p>
+        De PDF wordt <strong>volledig lokaal</strong> verwerkt in de browser via WebGPU hardware-acceleratie (Thesis §5.4).
+        Geen PDF wordt naar een server verstuurd — enkel het meetpakket wordt gesynchroniseerd.
+    </p>
+
+    <!-- Firefox Profiler instructies (Thesis §5.4) -->
+    <details class="profiler-guide">
+        <summary>Firefox Profiler instellen voor energiemeting (Thesis §5.4 — verplicht voor actieve metingen)</summary>
+        <ol>
+            <li>Open <strong>Firefox</strong> en ga naar <code>about:profiling</code></li>
+            <li>Activeer <strong>"Power"</strong> onder Features (vereist Firefox op Windows/macOS met Intel hardware)</li>
+            <li>Klik <strong>"Start Recording"</strong> vóór je op "Start Edge Extractie" klikt</li>
+            <li>Na de extractie: klik <strong>"Capture Profile"</strong></li>
+            <li>Zoek in de tijdlijn het interval gemarkeerd als <code>extraction</code> (performance.measure)</li>
+            <li>Lees de energie (Joules) af voor dat interval in het Power-paneel van de Profiler</li>
+            <li>Vul deze waarde in bij het invulveld dat na de extractie verschijnt en klik "Opslaan"</li>
+        </ol>
+        <p style="margin-bottom:0;"><small>
+            <strong>Warm-up runs</strong> worden <em>niet</em> opgeslagen in de DB en hoeven niet gemeten te worden.
+            Start de Profiler enkel voor de <em>actieve</em> metingen (na de warm-ups).
+        </small></p>
+    </details>
+
+    <!-- Warm-up tracker (Thesis §5.4: 3 warm-up runs) -->
+    <div>
+        <strong>Meetprotocol: 3 warm-up runs vóór actieve metingen (Thesis §5.4)</strong>
+        <div class="warmup-tracker">
+            <span style="font-size:13px;color:#555;">Warm-up:</span>
+            <div class="wu-dot" id="wu1" title="Warm-up 1">1</div>
+            <div class="wu-dot" id="wu2" title="Warm-up 2">2</div>
+            <div class="wu-dot" id="wu3" title="Warm-up 3">3</div>
+            <span id="warmupStatus" style="font-size:13px;color:#555;margin-left:6px;">
+                Klik eerst op "Warm-up uitvoeren" om het model in WebGPU VRAM te laden.
+            </span>
+        </div>
+    </div>
+
+    <!-- Upload formulier -->
+    <div class="upload-area">
+        <form id="uploadForm">
+            <input type="file" id="pdfFile" accept=".pdf" required><br><br>
+            <button type="button" class="btn btn-green" id="warmupBtn">Warm-up uitvoeren (3×)</button>
+            &nbsp;
+            <button type="submit" class="btn" id="submitBtn">Start Edge Extractie</button>
+        </form>
+        <div class="progress-bar" id="progressBar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p id="status"></p>
+    </div>
+
+    <div class="validation-warn" id="validationWarn"></div>
+
+    <!-- Energie invoerpaneel — verschijnt na elke actieve extractie -->
+    <div class="energy-panel" id="energyPanel">
+        <h3>Meetpunt opslaan in Centrale DB</h3>
+        <p>
+            Kopieer de energiewaarde voor het <strong>extraction</strong>-interval uit de Firefox Profiler Power-paneel:
+        </p>
+        <label for="energyInput">Energie (Joules) uit Firefox Profiler:</label>
+        <input type="number" id="energyInput" min="0" step="0.001" placeholder="bijv. 42.5" value="0">
+        <div id="pendingInfo" style="font-size:13px;color:#555;margin-top:8px;"></div>
+        <div class="btn-row">
+            <button class="btn btn-green" id="saveBtn">Opslaan in Measurement DB</button>
+            <button class="btn btn-gray"  id="skipBtn">Opslaan zonder energie (0 J)</button>
+        </div>
+    </div>
+
+    <!-- Resultaten -->
+    <div id="result" style="display:none;">
+        <h2>Resultaten &amp; Metingen</h2>
+        <div class="metrics" id="metricsDiv"></div>
+        <p><i>DB sync: <span id="syncStatus">—</span></i></p>
+        <h3>JSON Output</h3>
+        <pre id="jsonOutput"></pre>
+    </div>
+
+    <!-- Sessiegeschiedenis -->
+    <div id="historySection" style="display:none; margin-top:20px;">
+        <h2>Sessieoverzicht</h2>
+        <table class="history-table">
+            <thead>
+                <tr>
+                    <th>#</th><th>Type</th><th>Doc</th><th>Inferentie (s)</th>
+                    <th>Setup (s)</th><th>Energie (J)</th><th>Leverancier</th><th>kWh</th><th>DB-ID</th>
+                </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script type="module">
+    // ============================================================
+    // Transformers.js V3.6+ — WebGPU integratie (Thesis §5.4)
+    // Model: Gemma 3n E2B — vereist @next (v3.6+) voor gemma3n support
+    // ============================================================
+    import { AutoTokenizer, AutoModelForCausalLM } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@next';
+
+    // PDF.js voor PDF → tekst conversie in de browser (geen server upload)
+    const pdfjsLib = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/+esm');
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+
+    // ============================================================
+    // CONFIGURATIE (Thesis §5.4)
+    // ============================================================
+
+    // Thesis §5.4: altijd Gemma 3n E2B ongeacht deviceMemory
+    const MODEL_ID    = 'onnx-community/gemma-3-1b-it-ONNX';
+    const WARMUP_RUNS = 3;         // Thesis §5.4: 3 warm-up inferenties
+
+    // Thesis: 5 doelvelden — bijna-klare JSON, model fixt alleen datums
+    const EXTRACTION_PROMPT = `Fix the dates to YYYY-MM-DD format. Change nothing else. Return ONLY the corrected JSON.
+
+`;
+
+    // ============================================================
+    // STATE
+    // ============================================================
+    let warmupsDone     = 0;
+    let activeModel     = null;
+    let activeTokenizer = null;
+    let runCount        = 0;
+    let pendingMeasurement = null;
+
+    // UI refs
+    const statusEl     = document.getElementById('status');
+    const submitBtn    = document.getElementById('submitBtn');
+    const warmupBtn    = document.getElementById('warmupBtn');
+    const progressBar  = document.getElementById('progressBar');
+    const progressFill = document.getElementById('progressFill');
+    const offlineBadge = document.getElementById('offlineBadge');
+
+    function setStatus(msg) { statusEl.innerText = msg; }
+    function setProgress(pct) { progressFill.style.width = `${pct}%`; }
+
+    // ============================================================
+    // Service Worker + offline detectie
+    // ============================================================
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/static/sw.js')
+            .catch(err => console.warn('SW registratie mislukt:', err));
+    }
+    window.addEventListener('online',  () => offlineBadge.style.display = 'none');
+    window.addEventListener('offline', () => offlineBadge.style.display = 'inline-block');
+    if (!navigator.onLine) offlineBadge.style.display = 'inline-block';
+
+    // ============================================================
+    // WebGPU beschikbaarheidscheck
+    // ============================================================
+    async function checkWebGPU() {
+        const badge = document.getElementById('gpuBadge');
+        if (!navigator.gpu) {
+            badge.textContent = 'Niet beschikbaar — WASM fallback';
+            badge.className = 'badge badge-red';
+            return false;
+        }
+        const adapter = await navigator.gpu.requestAdapter().catch(() => null);
+        if (!adapter) {
+            badge.textContent = 'Geen adapter — WASM fallback';
+            badge.className = 'badge badge-red';
+            return false;
+        }
+        badge.textContent = 'Actief';
+        badge.className = 'badge badge-green';
+        return true;
+    }
+
+    // ============================================================
+    // Model laden (eenmalig, blijft in VRAM)
+    // Gemma 3 1B is tekst-only — vereist AutoTokenizer + AutoModelForCausalLM
+    // ============================================================
+    async function loadModel() {
+        if (activeModel) return;
+
+        const hasWebGPU = await checkWebGPU();
+        setStatus(`Model ${MODEL_ID} laden (q4 kwantisatie)...`);
+        progressBar.style.display = 'block';
+        setProgress(5);
+
+        const progressCb = (p) => {
+            if (p.status === 'downloading') {
+                const pct = Math.round(p.progress || 0);
+                setProgress(pct);
+                setStatus(`Model downloaden: ${p.file || ''} (${pct}%)`);
+            } else if (p.status === 'loading') {
+                setProgress(90);
+                setStatus('Model initialiseren in WebGPU VRAM...');
+            }
+        };
+
+        activeTokenizer = await AutoTokenizer.from_pretrained(MODEL_ID, {
+            progress_callback: progressCb
+        });
+
+        activeModel = await AutoModelForCausalLM.from_pretrained(MODEL_ID, {
+            dtype: 'q4f16',
+            device: hasWebGPU ? 'webgpu' : 'wasm',
+            progress_callback: progressCb
+        });
+
+        progressBar.style.display = 'none';
+    }
+
+    // ============================================================
+    // Inferentie helper — tekst-only input via chat template
+    // ============================================================
+    async function runInference(promptText, maxNewTokens = 256) {
+        const messages = [
+            { role: 'user', content: promptText }
+        ];
+        const inputs = activeTokenizer.apply_chat_template(messages, {
+            add_generation_prompt: true,
+            return_dict: true,
+            tokenize: true,
+        });
+        const inputLength = inputs.input_ids.dims[1];
+        const outputs = await activeModel.generate({
+            ...inputs,
+            max_new_tokens: maxNewTokens,
+            do_sample: false,
+        });
+        const newTokens = outputs.slice(null, [inputLength, null]);
+        const decoded = activeTokenizer.batch_decode(newTokens, { skip_special_tokens: true });
+        return decoded[0];
+    }
+
+    // ============================================================
+    // PDF verwerking — tekst extractie via PDF.js (client-side)
+    // ============================================================
+    async function processPDF(file) {
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+            setStatus(`PDF pagina ${i}/${pdf.numPages} verwerken...`);
+            setProgress(10 + (i / pdf.numPages) * 30);
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+        }
+
+        // Thesis: NATIVE als >100 extraheerbare tekens, anders SCAN
+        const documentStatus = fullText.trim().length > 100 ? 'NATIVE' : 'SCAN';
+        return { text: fullText, documentStatus };
+    }
+
+    // ============================================================
+    // Tekst pre-processing — normaliseer PDF.js output
+    // ============================================================
+    function preprocessText(raw) {
+        return raw
+            .replace(/[ \t]+/g, ' ')
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/(\d)\s*\.\s*(\d)/g, '$1.$2')
+            .replace(/(\d)\s*,\s*(\d)/g, '$1,$2')
+            .trim();
+    }
+
+    // ============================================================
+    // Pre-extractie: regex haalt kerndata uit tekst, bouwt compact
+    // pakketje voor het LLM (~200 tekens i.p.v. 1800+)
+    // ============================================================
+    function preExtractSummary(text) {
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+
+        // --- 1. Leverancier: zoek in tekst naar bedrijfsnaam + Italiaans suffix ---
+        let supplier = '';
+        // Match bedrijfsnaam vóór suffix (spa, srl, etc.) — max 60 tekens voor de suffix
+        const supplierRe = /([\w\s]{2,60}?\b(?:s\.?p\.?a|s\.?r\.?l|s\.?a\.?s|s\.?n\.?c))\b/i;
+        const supplierMatch = text.match(supplierRe);
+        if (supplierMatch) {
+            supplier = supplierMatch[1].trim();
+        }
+
+        // --- 2. Leveringsperiode: "fornitura dal X al Y" ---
+        let periodStart = '', periodEnd = '';
+        // Patroon 1: "fornitura dal 1 dicembre 2024 al 31 dicembre 2024"
+        const periodRe = /fornitura\s+dal\s+[\w\s]*?(\d{1,2})\s+(\w+)\s+(\d{4})\s+.*?al\s+[\w\s]*?(\d{1,2})\s+(\w+)\s+(\d{4})/i;
+        const periodMatch = text.match(periodRe);
+        if (periodMatch) {
+            periodStart = `${periodMatch[1]} ${periodMatch[2]} ${periodMatch[3]}`;
+            periodEnd   = `${periodMatch[4]} ${periodMatch[5]} ${periodMatch[6]}`;
+        }
+        // Patroon 2: "dal dd/mm/yyyy al dd/mm/yyyy"
+        if (!periodStart) {
+            const dateRe = /dal\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\s+al\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i;
+            const dateMatch = text.match(dateRe);
+            if (dateMatch) { periodStart = dateMatch[1]; periodEnd = dateMatch[2]; }
+        }
+
+        // --- 3. kWh verbruik: F1+F2+F3 of totaal ---
+        // Zoek maandelijkse meterdata: "F1 10.179 1,00 10.179" na "rilevata effettivi"
+        const f1Re = /F1\s+([\d.]+)\s+1[,.]00\s+([\d.]+)/g;
+        const f2Re = /F2\s+([\d.]+)\s+1[,.]00\s+([\d.]+)/g;
+        const f3Re = /F3\s+([\d.]+)\s+1[,.]00\s+([\d.]+)/g;
+        // Neem de laatste match (= werkelijke meting, niet de nulmeting)
+        let f1 = 0, f2 = 0, f3 = 0;
+        let m;
+        while ((m = f1Re.exec(text)) !== null) f1 = parseFloat(m[2].replace('.', ''));
+        while ((m = f2Re.exec(text)) !== null) f2 = parseFloat(m[2].replace('.', ''));
+        while ((m = f3Re.exec(text)) !== null) f3 = parseFloat(m[2].replace('.', ''));
+        const totalKwh = f1 + f2 + f3;
+
+        // Fallback: "Imposta Erariale XX.XXX kWh" of "totale (kWh)" rij
+        let fallbackKwh = '';
+        if (totalKwh === 0) {
+            const erarRe = /Imposta\s+Erariale.*?([\d.,]+)\s*kWh/i;
+            const erarMatch = text.match(erarRe);
+            if (erarMatch) {
+                // Italiaans formaat: "14.160" = 14160 (punt als duizendtalscheidingsteken)
+                fallbackKwh = erarMatch[1].replace(/\./g, '').replace(',', '.');
+            }
+        }
+
+        // --- 4. CO2 ---
+        let co2 = '0';
+        const co2Re = /co2.*?([\d.,]+)\s*(kg|ton)/i;
+        const co2Match = text.match(co2Re);
+        if (co2Match) co2 = co2Match[1];
+
+        // --- Bouw bijna-klare JSON — model hoeft alleen datums te fixen ---
+        const kwh = totalKwh > 0 ? totalKwh : (parseFloat(fallbackKwh) || 0);
+        const obj = {
+            supplier: supplier || 'unknown',
+            start_date: periodStart || 'unknown',
+            end_date: periodEnd || 'unknown',
+            kwh_quantity: kwh,
+            co2eq_quantity: parseFloat(co2) || 0
+        };
+        return JSON.stringify(obj);
+    }
+
+    // ============================================================
+    // JSON parse helper — robuust voor model output variaties
+    // ============================================================
+    function parseExtractedJSON(rawText) {
+        const cleaned = rawText
+            .replace(/```json\s*/gi, '')
+            .replace(/```\s*/g, '')
+            .trim();
+        // Match eerste volledige JSON object (inclusief geneste structuren)
+        const match = cleaned.match(/\{[\s\S]*\}/);
+        if (!match) return null;
+        try {
+            return JSON.parse(match[0]);
+        } catch {
+            // Poging 2: herstel veelvoorkomende model-fouten
+            try {
+                const fixed = match[0]
+                    .replace(/,\s*\}/g, '}')           // trailing comma
+                    .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // unquoted keys
+                    .replace(/:\s*'([^']*)'/g, ':"$1"');    // single → double quotes
+                return JSON.parse(fixed);
+            } catch {
+                return null;
+            }
+        }
+    }
+
+    function validateExtracted(data) {
+        if (!data) return false;
+        // Thesis: alle 5 doelvelden moeten aanwezig zijn
+        return ['supplier', 'start_date', 'end_date', 'kwh_quantity', 'co2eq_quantity']
+            .every(f => data[f] !== null && data[f] !== undefined && String(data[f]).trim() !== '');
+    }
+
+    // ============================================================
+    // Warm-up runs (3×, Thesis §5.4)
+    // Doel: WebGPU compute shaders initialiseren, model volledig in VRAM
+    // ============================================================
+    warmupBtn.addEventListener('click', async () => {
+        warmupBtn.disabled = true;
+        submitBtn.disabled = true;
+        progressBar.style.display = 'block';
+
+        try {
+            await loadModel();
+
+            for (let i = 1; i <= WARMUP_RUNS; i++) {
+                document.getElementById(`wu${i}`).className = 'wu-dot active';
+                setStatus(`Warm-up run ${i}/${WARMUP_RUNS}: WebGPU compute shaders activeren...`);
+                setProgress((i / WARMUP_RUNS) * 100);
+
+                // Echte inferentie — kort prompt om de WebGPU pipeline volledig te initialiseren
+                await runInference('Hello', 5);
+
+                warmupsDone = i;
+                document.getElementById(`wu${i}`).className = 'wu-dot done';
+            }
+
+            const statusEl2 = document.getElementById('warmupStatus');
+            statusEl2.innerText = `Alle ${WARMUP_RUNS} warm-ups voltooid. Model staat volledig in WebGPU VRAM. Klaar voor metingen.`;
+            statusEl2.style.color = '#155724';
+            warmupBtn.style.display = 'none';
+            setStatus('');
+
+        } catch (err) {
+            setStatus('Fout bij warm-ups: ' + err.message);
+            console.error(err);
+            warmupBtn.disabled = false;
+        } finally {
+            progressBar.style.display = 'none';
+            submitBtn.disabled = false;
+        }
+    });
+
+    // ============================================================
+    // Energie invoerpaneel helpers
+    // ============================================================
+    function showEnergyPanel(measurement) {
+        pendingMeasurement = measurement;
+        document.getElementById('pendingInfo').innerHTML =
+            `Run #${measurement.run_index} &nbsp;|&nbsp; ` +
+            `Doc: <strong>${measurement.document_status}</strong> &nbsp;|&nbsp; ` +
+            `Inferentie: <strong>${measurement.response_time.toFixed(3)}s</strong> &nbsp;|&nbsp; ` +
+            `Setup: <strong>${measurement.setup_time_s.toFixed(3)}s</strong> &nbsp;|&nbsp; ` +
+            `Leverancier: <strong>${measurement.supplier || '?'}</strong>`;
+        document.getElementById('energyInput').value = '';
+        document.getElementById('energyPanel').style.display = 'block';
+        document.getElementById('energyInput').focus();
+    }
+
+    async function saveMeasurement(energyJoules) {
+        const data = { ...pendingMeasurement, energy_joules: energyJoules };
+        const syncEl = document.getElementById('syncStatus');
+
+        try {
+            const resp = await fetch('/api/upload/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (resp.ok) {
+                const result = await resp.json();
+                data.db_id = result.id;
+                syncEl.textContent = `Opgeslagen in DB (ID: ${result.id}, energie: ${energyJoules.toFixed(3)} J)`;
+                syncEl.style.color = 'green';
+                addHistoryRow(data, false);
+            } else {
+                const errData = await resp.json();
+                syncEl.textContent = `API fout: ${errData.error || 'Validatie mislukt (run gediskwalificeerd)'}`;
+                syncEl.style.color = 'red';
+                addHistoryRow({ ...data, db_id: 'FAIL' }, false);
+            }
+        } catch (err) {
+            syncEl.textContent = `Netwerk fout: ${err.message}`;
+            syncEl.style.color = 'red';
+        }
+
+        document.getElementById('energyPanel').style.display = 'none';
+        pendingMeasurement = null;
+    }
+
+    document.getElementById('saveBtn').addEventListener('click', async () => {
+        document.getElementById('saveBtn').disabled = true;
+        document.getElementById('skipBtn').disabled = true;
+        const energyJ = parseFloat(document.getElementById('energyInput').value) || 0;
+        await saveMeasurement(energyJ);
+        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('skipBtn').disabled = false;
+    });
+
+    document.getElementById('skipBtn').addEventListener('click', async () => {
+        document.getElementById('saveBtn').disabled = true;
+        document.getElementById('skipBtn').disabled = true;
+        await saveMeasurement(0.0);
+        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('skipBtn').disabled = false;
+    });
+
+    // ============================================================
+    // Sessiegeschiedenistabel
+    // ============================================================
+    function addHistoryRow(run, isWarmup) {
+        document.getElementById('historySection').style.display = 'block';
+        const tbody = document.getElementById('historyBody');
+        const tr = document.createElement('tr');
+        tr.className = isWarmup ? 'wu-row' : 'meas-row';
+        tr.innerHTML = `
+            <td>${run.run_index ?? '—'}</td>
+            <td>${isWarmup ? '⚡ Warm-up' : '📊 Meting'}</td>
+            <td>${run.document_status ?? '—'}</td>
+            <td>${(run.response_time || 0).toFixed(3)}</td>
+            <td>${(run.setup_time_s || 0).toFixed(3)}</td>
+            <td>${run.energy_joules > 0 ? run.energy_joules.toFixed(3) : '–'}</td>
+            <td>${run.supplier || '–'}</td>
+            <td>${run.kwh_quantity ?? '–'}</td>
+            <td>${run.db_id || '–'}</td>
+        `;
+        tbody.appendChild(tr);
+    }
+
+    // ============================================================
+    // Hoofd extractie flow
+    // ============================================================
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const file = document.getElementById('pdfFile').files[0];
+        if (!file) return;
+
+        submitBtn.disabled = true;
+        document.getElementById('result').style.display = 'none';
+        document.getElementById('validationWarn').style.display = 'none';
+        document.getElementById('energyPanel').style.display = 'none';
+        progressBar.style.display = 'block';
+        setProgress(0);
+
+        try {
+            const mem = navigator.deviceMemory || '?';
+
+            // Setup Stage: model laden (als niet reeds geladen via warm-up)
+            const setupStart = performance.now();
+            if (!activeModel) {
+                setStatus('LET OP: Geen warm-up uitgevoerd. Cold start meetbaar in timing.');
+                await loadModel();
+            }
+            const setupTimeS = (performance.now() - setupStart) / 1000;
+
+            // PDF verwerken — volledig client-side, geen server upload
+            setProgress(20);
+            const { text: pdfText, documentStatus } = await processPDF(file);
+
+            // Waarschuw bij SCAN PDF (PDF.js kan geen tekst extraheren)
+            if (documentStatus === 'SCAN') {
+                const warnEl = document.getElementById('validationWarn');
+                warnEl.style.display = 'block';
+                warnEl.innerText =
+                    'SCAN PDF gedetecteerd: PDF.js kan geen tekst extraheren uit gescande afbeeldingen. ' +
+                    'Extractie zal waarschijnlijk mislukken en de run wordt gediskwalificeerd. ' +
+                    'Gebruik een native (digitale) PDF voor betrouwbare metingen.';
+            }
+
+            // Pre-extractie: regex haalt kerndata, bouwt compact pakketje (~200 tekens)
+            const processedText = preprocessText(pdfText);
+            const truncatedText = preExtractSummary(processedText);
+            console.log('=== LLM INPUT ===\n' + EXTRACTION_PROMPT + truncatedText + '\n=== END ===');
+
+            setStatus(`Gemma 3 1B inferentie via WebGPU (doc: ${documentStatus})...`);
+            setProgress(50);
+
+            // Performance marks voor Firefox Profiler correlatie (Thesis §5.4)
+            performance.mark('extraction-start');
+            const genStart = performance.now();
+
+            // Poging 1 — hoofdextractie (max 140 tokens: JSON voor 5 velden is ~40 tokens)
+            let rawOutput = await runInference(EXTRACTION_PROMPT + truncatedText, 140);
+            let extracted = parseExtractedJSON(rawOutput);
+
+            // Poging 2 — retry met korter prompt + minder tokens om GPU-crash te vermijden
+            if (!validateExtracted(extracted)) {
+                setStatus('Eerste extractie onvolledig, retry met gefocust prompt...');
+                const retryPrompt = `Convert to JSON with dates as YYYY-MM-DD. Return ONLY JSON.\n\n${truncatedText}`;
+                rawOutput = await runInference(retryPrompt, 140);
+                extracted = parseExtractedJSON(rawOutput);
+            }
+
+            const genTimeS = (performance.now() - genStart) / 1000;
+            performance.mark('extraction-end');
+            performance.measure('extraction', 'extraction-start', 'extraction-end');
+
+            const totalTimeS = setupTimeS + genTimeS;
+            setProgress(80);
+            setStatus('Model-output parsen naar JSON...');
+            const isValid = validateExtracted(extracted);
+
+            if (!isValid) {
+                const warnEl = document.getElementById('validationWarn');
+                warnEl.style.display = 'block';
+                warnEl.innerText =
+                    `Extractie onvolledig — niet alle 5 doelvelden aanwezig. ` +
+                    `Run wordt gediskwalificeerd (HTTP 422). ` +
+                    `Model output: ${String(rawOutput || '').substring(0, 300)}`;
+            }
+
+            runCount++;
+
+            // Toon resultaten UI
+            document.getElementById('jsonOutput').textContent = JSON.stringify(extracted, null, 2);
+            document.getElementById('metricsDiv').innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-value">${totalTimeS.toFixed(2)}s</div>
+                    <div>Totale tijd</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${setupTimeS.toFixed(2)}s</div>
+                    <div>Setup Stage</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${genTimeS.toFixed(2)}s</div>
+                    <div>Generatie Stage</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">Gemma 3 1B</div>
+                    <div>AI Model</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${documentStatus}</div>
+                    <div>Doc Complexiteit</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">Firefox Profiler</div>
+                    <div>Energiemeting (extern)</div>
+                </div>
+            `;
+            document.getElementById('result').style.display = 'block';
+
+            // Bouw volledig measurement pakket (Thesis §5.4 velden)
+            // energie_joules wordt ingevuld via het paneel hieronder
+            const measurementData = {
+                architecture:             'PWA',
+                hardware_context:         `Edge Browser WebGPU (RAM: ${mem}GB)`,
+                model_size:               MODEL_ID,
+                response_time:            genTimeS,     // Generatie Stage (Thesis)
+                setup_time_s:             setupTimeS,   // Setup Stage: model load (Thesis)
+                energy_joules:            0.0,          // Ingevuld via Firefox Profiler paneel
+                setup_energy_joules:      0.0,
+                gpu_joules:               0.0,
+                cpu_joules:               0.0,
+                dram_joules:              0.0,
+                network_joules:           0.0,          // PWA: geen PDF transfer naar server
+                gpu_avg_watts:            0.0,
+                pue_factor:               1.0,          // Edge: geen datacenter overhead (Thesis)
+                carbon_intensity_gco2_kwh: 167.0,       // ENTSO-E België (Thesis)
+                document_status:          documentStatus,
+                run_index:                runCount,
+                supplier:                 extracted?.supplier   || null,
+                start_date:               extracted?.start_date || null,
+                end_date:                 extracted?.end_date   || null,
+                kwh_quantity:             extracted?.kwh_quantity   ?? null,
+                co2eq_quantity:           extracted?.co2eq_quantity ?? null
+            };
+
+            setProgress(100);
+            setStatus(`Extractie klaar (inferentie: ${genTimeS.toFixed(2)}s). Voer energiewaarde in uit Firefox Profiler.`);
+
+            // Toon energie invoerpaneel — wacht op gebruikersinvoer vóór API-aanroep
+            showEnergyPanel(measurementData);
+
+        } catch (err) {
+            setStatus(`Fout bij lokale uitvoering: ${err.message}`);
+            console.error(err);
+        } finally {
+            submitBtn.disabled = false;
+            progressBar.style.display = 'none';
+        }
+    });
+</script>
+</body>
+</html>

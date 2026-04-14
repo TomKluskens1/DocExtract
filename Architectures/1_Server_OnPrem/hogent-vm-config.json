@@ -1,0 +1,49 @@
+{
+  "vm_id": "250",
+  "name": "course-dit-pbatin-mt3-y-bp-3",
+  "tags": [],
+  "cpus": 4,
+  "memory": 4096,
+  "disk_size": 32,
+  "node_name": "gpu2",
+  "network": "vmbr0",
+  "vlan_id": 11,
+  "ipv4": "10.11.2.49",
+  "subnetmask": 16,
+  "gateway": "10.11.0.1",
+  "port_forwards": [
+    {
+      "external_port": "41163",
+      "internal_port": "22",
+      "protocol": "tcp"
+    }
+  ],
+  "pci_devices": {
+    "raw": [
+      {
+        "device": "hostpci0",
+        "id": "0000:e3:00.0"
+      }
+    ]
+  },
+  "dns": [
+    "10.11.0.1"
+  ],
+  "subdomains": [
+    {
+      "domains": [
+        "https://tomkluskens.vichogent.be"
+      ],
+      "port": "80"
+    }
+  ],
+  "cloud_image": "ubuntu-25-10",
+  "contact_email": "tom.kluskens@student.hogent.be",
+  "deployer_email": "martijn.saelens@hogent.be",
+  "start_date": "2026-03-16",
+  "end_date": "2026-06-30",
+  "ssh_authorized_keys": [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJBTk/k+KhqHm64/BgqeW+qGZ0Mwz8zjAbw5/DCWW96r kluskenstom2004@gmail.com",
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHMVQCng6LFqn88lLRAqxVk5C5UziaIibn/g70dViAZO"
+  ]
+}

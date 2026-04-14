@@ -1,0 +1,10 @@
+Flask==3.0.3
+Flask-SQLAlchemy==3.1.1
+pydantic>=2.9.0
+PyMuPDF>=1.25.0
+codecarbon==2.4.1
+openai>=1.0.0
+python-dotenv>=1.0.0
+psutil>=7.0.0
+google-cloud-monitoring>=2.0.0
+google-auth>=2.0.0
