@@ -140,4 +140,4 @@ De actieve `.env` wijst naar de Cloud Run Ollama-deployment. Cloud Run service-t
 
 ## Licentie
 
-Ontwikkeld voor academisch onderzoek in het kader van een bachelorproef (Green IT / AI-energie-efficiëntie). De basis in `SharedCore` is sterk geherstructureerd naar een service-georiënteerde 3-weg architectuur om de onderzoeksvragen te toetsen.
+Ontwikkeld door Tom Kluskens in samenwerking met Turtle Srl voor academisch onderzoek in het kader van de bachelorproef *"AI en energieverbruik in webarchitectuur: Een vergelijking tussen serverless, klassieke infrastructuur en Progressive Web Apps"* aan HOGENT. De basis in `SharedCore` is sterk geherstructureerd naar een service-georiënteerde 3-weg architectuur om de onderzoeksvragen te toetsen.
