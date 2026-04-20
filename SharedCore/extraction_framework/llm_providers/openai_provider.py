@@ -19,7 +19,7 @@ class OpenAIProvider(BaseLLMProvider):
         model: str = "gpt-4o", 
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
-        provider_name: str = "OpenAI"
+        provider_name: str = "OpenAI",
     ):
         super().__init__(provider_name, model, api_key)
         if not OPENAI_AVAILABLE:
@@ -117,21 +117,21 @@ class OpenAIProvider(BaseLLMProvider):
         )
 
         # Use structured outputs with optimized parameters
-        response = self.client.beta.chat.completions.parse(
-            model=self.model,
-            messages=[
+        request_kwargs = {
+            "model": self.model,
+            "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": content},
             ],
-            response_format=schema,
+            "response_format": schema,
             # Optimized parameters for structured/tabular extraction
-            temperature=0.0,              # Deterministic output, no hallucination
-            top_p=0.95,                   # Focus on high-probability tokens
-            max_tokens=8192,              # High limit to avoid truncation
-            frequency_penalty=0.0,        # No penalty - allow repetitive table structures
-            presence_penalty=0.0,         # No penalty - allow similar content (months, values)
-            extra_body={"keep_alive": 0}  # Force Ollama to unload model from VRAM immediately
-        )
+            "temperature": 0.0,              # Deterministic output, no hallucination
+            "top_p": 0.95,                   # Focus on high-probability tokens
+            "max_tokens": 8192,              # High limit to avoid truncation
+            "frequency_penalty": 0.0,        # No penalty - allow repetitive table structures
+            "presence_penalty": 0.0,         # No penalty - allow similar content (months, values)
+        }
+        response = self.client.beta.chat.completions.parse(**request_kwargs)
         
         return response.choices[0].message.parsed, self._extract_tokens(response)
     
@@ -147,11 +147,11 @@ class OpenAIProvider(BaseLLMProvider):
         """
         content = self._build_content(text=text, prompt=prompt)
         
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "user", "content": content}],
-            extra_body={"keep_alive": 0}
-        )
+        request_kwargs = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": content}],
+        }
+        response = self.client.chat.completions.create(**request_kwargs)
         
         return response.choices[0].message.content, self._extract_tokens(response)
     

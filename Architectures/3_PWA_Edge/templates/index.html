@@ -37,11 +37,11 @@
         .progress-bar  { width: 100%; background: #eee; border-radius: 4px; margin: 10px 0; display: none; }
         .progress-fill { height: 18px; background: #0066cc; border-radius: 4px; transition: width 0.3s; width: 0%; }
 
-        /* Firefox Profiler guide */
-        .profiler-guide { background: #e8f4fd; border: 1px solid #0066cc; border-radius: 6px; padding: 15px; margin: 15px 0; }
-        .profiler-guide summary { cursor: pointer; font-weight: bold; color: #0066cc; user-select: none; }
-        .profiler-guide ol { margin: 10px 0 4px 0; padding-left: 22px; line-height: 1.7; }
-        .profiler-guide code { background: #ddeeff; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
+        /* LHM guide */
+        .lhm-guide { background: #e8f4fd; border: 1px solid #0066cc; border-radius: 6px; padding: 15px; margin: 15px 0; }
+        .lhm-guide summary { cursor: pointer; font-weight: bold; color: #0066cc; user-select: none; }
+        .lhm-guide ol { margin: 10px 0 4px 0; padding-left: 22px; line-height: 1.7; }
+        .lhm-guide code { background: #ddeeff; padding: 1px 5px; border-radius: 3px; font-size: 13px; }
 
         /* Warm-up tracker */
         .warmup-tracker { display: flex; align-items: center; gap: 8px; margin: 8px 0 14px 0; }
@@ -84,32 +84,30 @@
         Geen PDF wordt naar een server verstuurd — enkel het meetpakket wordt gesynchroniseerd.
     </p>
 
-    <!-- Firefox Profiler instructies (Thesis §5.4) -->
-    <details class="profiler-guide">
-        <summary>Firefox Profiler instellen voor energiemeting (Thesis §5.4 — verplicht voor actieve metingen)</summary>
+    <!-- LibreHardwareMonitor instructies (Thesis §5.4) -->
+    <details class="lhm-guide">
+        <summary>LibreHardwareMonitor instellen voor energiemeting (Thesis §5.4 — verplicht voor actieve metingen)</summary>
         <ol>
-            <li>Open <strong>Firefox</strong> en ga naar <code>about:profiling</code></li>
-            <li>Activeer <strong>"Power"</strong> onder Features (vereist Firefox op Windows/macOS met Intel hardware)</li>
-            <li>Klik <strong>"Start Recording"</strong> vóór je op "Start Edge Extractie" klikt</li>
-            <li>Na de extractie: klik <strong>"Capture Profile"</strong></li>
-            <li>Zoek in de tijdlijn het interval gemarkeerd als <code>extraction</code> (performance.measure)</li>
-            <li>Lees de energie (Joules) af voor dat interval in het Power-paneel van de Profiler</li>
-            <li>Vul deze waarde in bij het invulveld dat na de extractie verschijnt en klik "Opslaan"</li>
+            <li>Download <strong>LibreHardwareMonitor</strong> van <a href="https://github.com/LibreHardwareMonitor/LibreHardwareMonitor" target="_blank">GitHub</a> en pak het zip-bestand uit</li>
+            <li>Start <code>LibreHardwareMonitor.exe</code> <strong>als Administrator</strong></li>
+            <li>Activeer de webserver: <strong>Options → Remote Web Server → Run</strong> (poort 8085)</li>
+            <li>Verifieer: <code>http://localhost:8085/data.json</code> moet een JSON-boom teruggeven met een CPU Package Power-sensor</li>
         </ol>
         <p style="margin-bottom:0;"><small>
-            <strong>Warm-up runs</strong> worden <em>niet</em> opgeslagen in de DB en hoeven niet gemeten te worden.
-            Start de Profiler enkel voor de <em>actieve</em> metingen (na de warm-ups).
+            De energiewaarde wordt automatisch ingevuld via de CPU Package Power-sensor.
+            <strong>Warm-up runs</strong> worden <em>niet</em> opgeslagen in de DB.
         </small></p>
     </details>
 
-    <!-- Warm-up tracker (Thesis §5.4: 3 warm-up runs) -->
+    <!-- Warm-up tracker (meetprotocol: 4 warm-up runs) -->
     <div>
-        <strong>Meetprotocol: 3 warm-up runs vóór actieve metingen (Thesis §5.4)</strong>
+        <strong>Meetprotocol: 4 warm-up runs vóór actieve metingen</strong>
         <div class="warmup-tracker">
             <span style="font-size:13px;color:#555;">Warm-up:</span>
             <div class="wu-dot" id="wu1" title="Warm-up 1">1</div>
             <div class="wu-dot" id="wu2" title="Warm-up 2">2</div>
             <div class="wu-dot" id="wu3" title="Warm-up 3">3</div>
+            <div class="wu-dot" id="wu4" title="Warm-up 4">4</div>
             <span id="warmupStatus" style="font-size:13px;color:#555;margin-left:6px;">
                 Klik eerst op "Warm-up uitvoeren" om het model in WebGPU VRAM te laden.
             </span>
@@ -120,7 +118,7 @@
     <div class="upload-area">
         <form id="uploadForm">
             <input type="file" id="pdfFile" accept=".pdf" required><br><br>
-            <button type="button" class="btn btn-green" id="warmupBtn">Warm-up uitvoeren (3×)</button>
+            <button type="button" class="btn btn-green" id="warmupBtn">Warm-up uitvoeren (4×)</button>
             &nbsp;
             <button type="submit" class="btn" id="submitBtn">Start Edge Extractie</button>
         </form>
@@ -136,9 +134,9 @@
     <div class="energy-panel" id="energyPanel">
         <h3>Meetpunt opslaan in Centrale DB</h3>
         <p>
-            Kopieer de energiewaarde voor het <strong>extraction</strong>-interval uit de Firefox Profiler Power-paneel:
+            Energiewaarde (Joules) voor dit meetpunt — automatisch ingevuld via LibreHardwareMonitor:
         </p>
-        <label for="energyInput">Energie (Joules) uit Firefox Profiler:</label>
+        <label for="energyInput">Energie (Joules) — CPU Package Power (LHM):</label>
         <input type="number" id="energyInput" min="0" step="0.001" placeholder="bijv. 42.5" value="0">
         <div id="pendingInfo" style="font-size:13px;color:#555;margin-top:8px;"></div>
         <div class="btn-row">
@@ -174,7 +172,7 @@
 <script type="module">
     // ============================================================
     // Transformers.js V3.6+ — WebGPU integratie (Thesis §5.4)
-    // Model: Gemma 3n E2B — vereist @next (v3.6+) voor gemma3n support
+    // Model: Gemma 3 1B ONNX — tekst-only en lichter voor stabiele PWA inferentie
     // ============================================================
     import { AutoTokenizer, AutoModelForCausalLM } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@next';
 
@@ -187,9 +185,12 @@
     // CONFIGURATIE (Thesis §5.4)
     // ============================================================
 
-    // Thesis §5.4: altijd Gemma 3n E2B ongeacht deviceMemory
+    // Thesis §5.4: vaste modelkeuze voor reproduceerbare PWA metingen
     const MODEL_ID    = 'onnx-community/gemma-3-1b-it-ONNX';
-    const WARMUP_RUNS = 3;         // Thesis §5.4: 3 warm-up inferenties
+    const WARMUP_RUNS = 4;
+    const URL_PARAMS  = new URLSearchParams(window.location.search);
+    const BATCH_ID    = URL_PARAMS.get('batch_id') || null;
+    const MODEL_DTYPE = 'q4';
 
     // Thesis: 5 doelvelden — bijna-klare JSON, model fixt alleen datums
     const EXTRACTION_PROMPT = `Fix the dates to YYYY-MM-DD format. Change nothing else. Return ONLY the corrected JSON.
@@ -204,6 +205,25 @@
     let activeTokenizer = null;
     let runCount        = 0;
     let pendingMeasurement = null;
+    let benchmarkMode   = 'steady';
+    let benchmarkToken  = null;
+    window.__lastMeasurement = null;
+    window.__lastCompletedToken = null;
+
+    window.__setBenchmarkMode = (mode = 'steady', meta = {}) => {
+        benchmarkMode = mode;
+        benchmarkToken = meta.token || null;
+        console.log('[PWA] benchmark mode', { mode: benchmarkMode, token: benchmarkToken });
+    };
+
+    function markBenchmarkCompletion(mode) {
+        if (benchmarkToken) {
+            window.__lastCompletedToken = benchmarkToken;
+            console.log('[PWA] benchmark complete', { mode, token: benchmarkToken });
+        }
+        benchmarkMode = 'steady';
+        benchmarkToken = null;
+    }
 
     // UI refs
     const statusEl     = document.getElementById('status');
@@ -250,7 +270,7 @@
 
     // ============================================================
     // Model laden (eenmalig, blijft in VRAM)
-    // Gemma 3 1B is tekst-only — vereist AutoTokenizer + AutoModelForCausalLM
+    // Gemma 3 1B is tekst-only en past beter binnen de geheugenlimieten van browser/WebGPU.
     // ============================================================
     async function loadModel() {
         if (activeModel) return;
@@ -259,8 +279,10 @@
         setStatus(`Model ${MODEL_ID} laden (q4 kwantisatie)...`);
         progressBar.style.display = 'block';
         setProgress(5);
+        console.log('[PWA] loadModel start', { model: MODEL_ID, device: hasWebGPU ? 'webgpu' : 'wasm', dtype: MODEL_DTYPE });
 
         const progressCb = (p) => {
+            console.log('[PWA] progress', JSON.stringify(p));
             if (p.status === 'downloading') {
                 const pct = Math.round(p.progress || 0);
                 setProgress(pct);
@@ -271,16 +293,21 @@
             }
         };
 
+        console.log('[PWA] tokenizer load start');
         activeTokenizer = await AutoTokenizer.from_pretrained(MODEL_ID, {
             progress_callback: progressCb
         });
+        console.log('[PWA] tokenizer load klaar');
 
+        console.log('[PWA] model load start');
         activeModel = await AutoModelForCausalLM.from_pretrained(MODEL_ID, {
-            dtype: 'q4f16',
+            dtype: MODEL_DTYPE,
             device: hasWebGPU ? 'webgpu' : 'wasm',
             progress_callback: progressCb
         });
+        console.log('[PWA] model load klaar');
 
+        console.log('[PWA] loadModel klaar');
         progressBar.style.display = 'none';
     }
 
@@ -449,7 +476,7 @@
     }
 
     // ============================================================
-    // Warm-up runs (3×, Thesis §5.4)
+    // Warm-up runs (4× volgens meetprotocol)
     // Doel: WebGPU compute shaders initialiseren, model volledig in VRAM
     // ============================================================
     warmupBtn.addEventListener('click', async () => {
@@ -507,6 +534,7 @@
     async function saveMeasurement(energyJoules) {
         const data = { ...pendingMeasurement, energy_joules: energyJoules };
         const syncEl = document.getElementById('syncStatus');
+        window.__lastMeasurement = data;
 
         try {
             const resp = await fetch('/api/upload/', {
@@ -534,6 +562,7 @@
 
         document.getElementById('energyPanel').style.display = 'none';
         pendingMeasurement = null;
+        markBenchmarkCompletion('steady');
     }
 
     document.getElementById('saveBtn').addEventListener('click', async () => {
@@ -683,7 +712,7 @@
                     <div>Doc Complexiteit</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-value">Firefox Profiler</div>
+                    <div class="metric-value">LHM / ADB</div>
                     <div>Energiemeting (extern)</div>
                 </div>
             `;
@@ -692,12 +721,13 @@
             // Bouw volledig measurement pakket (Thesis §5.4 velden)
             // energie_joules wordt ingevuld via het paneel hieronder
             const measurementData = {
+                batch_id:                 BATCH_ID,
                 architecture:             'PWA',
                 hardware_context:         `Edge Browser WebGPU (RAM: ${mem}GB)`,
                 model_size:               MODEL_ID,
                 response_time:            genTimeS,     // Generatie Stage (Thesis)
                 setup_time_s:             setupTimeS,   // Setup Stage: model load (Thesis)
-                energy_joules:            0.0,          // Ingevuld via Firefox Profiler paneel
+                energy_joules:            0.0,          // Ingevuld via LHM/ADB paneel
                 setup_energy_joules:      0.0,
                 gpu_joules:               0.0,
                 cpu_joules:               0.0,
@@ -714,9 +744,20 @@
                 kwh_quantity:             extracted?.kwh_quantity   ?? null,
                 co2eq_quantity:           extracted?.co2eq_quantity ?? null
             };
+            window.__lastMeasurement = measurementData;
 
             setProgress(100);
-            setStatus(`Extractie klaar (inferentie: ${genTimeS.toFixed(2)}s). Voer energiewaarde in uit Firefox Profiler.`);
+            setStatus(`Extractie klaar (inferentie: ${genTimeS.toFixed(2)}s). Voer energiewaarde in (of wacht op automatische invulling via LHM).`);
+
+            if (benchmarkMode === 'warmup') {
+                const syncEl = document.getElementById('syncStatus');
+                syncEl.textContent = 'Warm-up run voltooid (niet opgeslagen in DB)';
+                syncEl.style.color = '#996c00';
+                addHistoryRow({ ...measurementData, energy_joules: 0.0, db_id: 'WU' }, true);
+                setStatus('Warm-up voltooid.');
+                markBenchmarkCompletion('warmup');
+                return;
+            }
 
             // Toon energie invoerpaneel — wacht op gebruikersinvoer vóór API-aanroep
             showEnergyPanel(measurementData);

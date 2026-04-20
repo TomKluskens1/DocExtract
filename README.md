@@ -10,13 +10,13 @@ Praktische implementatie voor het bachelorproefonderzoek naar de energie-effici√
 
 | # | Variant | Locatie | Hardware | AI-Model | Energiemeting |
 |---|---------|---------|----------|----------|---------------|
-| 1 | **Server On-Premises** | HOGENT Datacenter | NVIDIA A30 GPU | Gemma 3 12B via Ollama | Scaphandre (RAPL) + PyNVML @ 100ms |
+| 1 | **Server On-Premises** | HOGENT Datacenter | NVIDIA A30 GPU | Gemma 3 12B via Ollama | PyNVML @ 100ms + CodeCarbon |
 | 2 | **Serverless Cloud Run** | Google Cloud Run | NVIDIA L4 GPU | Gemma 3 12B via Ollama | CodeCarbon √ó 1.25 Fischer correction |
 | 3 | **PWA Edge Computing** | Browser / Smartphone | Lokale CPU/GPU | Gemma 3 1B/4B via WebGPU | Firefox Profiler / Android ADB |
 
 ### 1. On-Premises (`Architectures/1_Server_OnPrem`)
 
-Volledig lokale uitvoering op de HOGENT-server. `keep_alive: 0` scheidt actief inferentieverbruik van idle VRAM-gebruik. Energiemeting via Scaphandre Prometheus-scraping (CPU + DRAM via RAPL) en directe PyNVML GPU-polling.
+Volledig lokale uitvoering op de HOGENT-server. Het model blijft tussen opeenvolgende requests warm in VRAM, zoals gebruikelijk is voor een klassieke serveropstelling. Energiemeting gebeurt hybride: GPU direct via PyNVML-polling en CPU/DRAM via CodeCarbon, omdat RAPL-passthrough in de VM niet betrouwbaar beschikbaar is.
 
 ### 2. Cloud Run (`Architectures/2_Cloud_Run`)
 
@@ -87,6 +87,65 @@ docker push europe-west4-docker.pkg.dev/zinc-wares-488311-a0/thesis-repo/extest-
 gcloud run services replace Architectures/2_Cloud_Run/extest-web.yaml --region=europe-west1
 ```
 
+### Geautomatiseerde benchmark-runs
+
+Voor herhaalbare testreeksen kun je `scripts/run_benchmark.py` gebruiken. Het script gebruikt standaard de PDF's in `../Dataset` en voert per PDF `1` warm-up run, `8` steady-state runs en `4` cold-start candidate runs uit. Met de huidige dataset van `4` PDF's komt dat neer op `4` warm-up runs, `32` steady-state runs en `16` cold-start candidate runs. Tussen de cold-start candidate runs wacht het standaard `600` seconden. Elke benchmarkbatch krijgt automatisch een unieke `batch_id` die mee opgeslagen wordt in de metingen.
+
+```bash
+cd DocExtract
+python scripts/run_benchmark.py \
+  --base-url https://extest-web-191306170452.europe-west1.run.app \
+  --output benchmark_results.json
+```
+
+Gebruik `--pdf` meerdere keren als je expliciet een lijst bestanden wilt opgeven, of overschrijf `--pdf-dir` als je een andere datasetmap wilt gebruiken. Het script logt per run o.a. `batch_id`, `measurement_id`, HTTP-status, `response_time`, `setup_time_s`, fase (`warmup`, `steady`, `cold_candidate`) en de herhaling per PDF, zodat je achteraf kunt zien welke cold-start candidate runs effectief hoge setup-tijden hadden.
+
+Als `MeasurementDashboard` draait, kan het script na afloop ook exact zijn eigen batch downloaden via de dashboard-export:
+
+```bash
+python scripts/run_benchmark.py \
+  --base-url https://extest-web-191306170452.europe-west1.run.app \
+  --dashboard-export-url http://127.0.0.1:8080/api/measurements/export \
+  --output benchmark_results.json \
+  --dashboard-export-output benchmark_dashboard_export.json
+```
+
+Voor de on-premises backend is er ook een aparte wrapper. Die gaat uit van een SSH-tunnel naar de HOGENT-server en gebruikt lokaal `http://127.0.0.1:5000` als endpoint.
+
+Start eerst de tunnel naar de VM. Op basis van [hogent-vm-config.json](D:\Projects\Bachelorproef\DocExtract\Architectures\1_Server_OnPrem\hogent-vm-config.json) is dat de subdomain `tomkluskens.vichogent.be` met SSH forward op externe poort `41163`:
+
+```bash
+ssh -p 41163 -L 5000:localhost:5000 <jouw-gebruiker>@tomkluskens.vichogent.be
+```
+
+Daarna kun je de on-prem benchmarkrunner starten:
+
+```bash
+cd DocExtract
+python scripts/run_benchmark_onprem.py \
+  --dashboard-export-url http://127.0.0.1:8080/api/measurements/export
+```
+
+Die wrapper gebruikt standaard:
+- `--base-url http://127.0.0.1:5000`
+- `--architecture HOGENT`
+- `--output benchmark_onprem_results.json`
+- `--dashboard-export-output benchmark_onprem_dashboard_export.json`
+
+Voor een volledige nacht-run van cloud en server tegelijk is er ook een parallelle orchestrator. Die start beide reeksen met een eigen `batch_id`, houdt aparte logbestanden bij en volgt het protocol uit `../meetprotocol_overzicht.md`: server krijgt `4` warm-up runs en `32` warm runs, cloud krijgt daarnaast nog `16` cold-start candidate runs. Met `--shuffle` wordt de volgorde per fase aselect uitgevoerd.
+
+```bash
+cd DocExtract
+python scripts/run_benchmark_parallel.py \
+  --dashboard-export-url http://127.0.0.1:8080/api/measurements/export \
+  --output-dir parallel_benchmark
+```
+
+Voorwaarde:
+- `MeasurementDashboard` draait lokaal
+- de SSH-tunnel naar HOGENT staat open op `127.0.0.1:5000`
+- de cloudservice is live bereikbaar
+
 ### 3. PWA Edge
 
 ```bash
@@ -110,6 +169,8 @@ Elke succesvolle extractie stuurt een uniform JSON-meetobject naar de SQLite-dat
 | Timing | `response_time`, `setup_time_s` |
 | Energie | `energy_joules`, `dram_joules`, `network_joules`, `setup_energy_joules` |
 | Resultaat | `supplier`, `start_date`, `end_date`, `kwh_quantity`, `co2eq_quantity` |
+
+De `GET /api/measurements`-endpoint van elke architectuur geeft diezelfde 5 extractievelden ook expliciet mee in de JSON-respons. Daardoor kan `MeasurementDashboard` ze rechtstreeks ophalen, exporteren en tussen runs/architecturen vergelijken zonder extra parsing uit de database.
 
 ### Vaste Constanten
 

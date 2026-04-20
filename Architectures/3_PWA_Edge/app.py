@@ -6,6 +6,7 @@ import threading
 from pathlib import Path
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import text
 import urllib.request
 
 try:
@@ -48,6 +49,7 @@ db = SQLAlchemy(app)
 # ==========================================
 class Measurement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    batch_id = db.Column(db.String(64), nullable=True)
     architecture = db.Column(db.String(20)) # HOGENT, CLOUD_RUN, PWA
     hardware_context = db.Column(db.String(100))
     model_size = db.Column(db.String(200))
@@ -76,10 +78,15 @@ class Measurement(db.Model):
 
 with app.app_context():
     db.create_all()
+    try:
+        db.session.execute(text("ALTER TABLE measurement ADD COLUMN batch_id VARCHAR(64)"))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
 
 # ==========================================
 # 2. Hardware Energiemeting (Edge/PWA)
-# Alle energiemetingen gebeuren client-side in de browser (Firefox Profiler of ADB)
+# Alle energiemetingen gebeuren extern: LibreHardwareMonitor (desktop) of ADB (Android)
 # ==========================================
 
 # ==========================================
@@ -96,7 +103,7 @@ def index():
 def get_measurements():
     measurements = Measurement.query.order_by(Measurement.timestamp.desc()).all()
     data = [{
-        "id": m.id, "architecture": m.architecture, "hardware_context": m.hardware_context,
+        "id": m.id, "batch_id": m.batch_id, "architecture": m.architecture, "hardware_context": m.hardware_context,
         "model_size": m.model_size, "response_time": m.response_time, "setup_time_s": m.setup_time_s,
         "energy_joules": m.energy_joules, "setup_energy_joules": m.setup_energy_joules,
         "gpu_joules": m.gpu_joules, "cpu_joules": m.cpu_joules,
@@ -104,7 +111,9 @@ def get_measurements():
         "gpu_avg_watts": m.gpu_avg_watts, "pue_factor": m.pue_factor,
         "carbon_intensity_gco2_kwh": m.carbon_intensity_gco2_kwh,
         "document_status": m.document_status, 
-        "supplier": m.supplier, "timestamp": m.timestamp
+        "supplier": m.supplier, "start_date": m.start_date,
+        "end_date": m.end_date, "kwh_quantity": m.kwh_quantity,
+        "co2eq_quantity": m.co2eq_quantity, "timestamp": m.timestamp
     } for m in measurements]
     return jsonify(data)
 
@@ -119,6 +128,7 @@ def api_upload():
         return jsonify({"error": "Extractie onvolledig: missende doelvelden. Measurement gediskwalificeerd."}), 422
 
     m = Measurement(
+        batch_id=data.get('batch_id'),
         architecture=data.get('architecture', 'UNKNOWN'),
         hardware_context=data.get('hardware_context', 'UNKNOWN'),
         model_size=data.get('model_size', 'UNKNOWN'),

@@ -1,0 +1,1989 @@
+{
+  "created_at": "2026-04-19T20:27:36.973654+00:00",
+  "base_url": "http://127.0.0.1:5000",
+  "architecture": "HOGENT",
+  "batch_id": "server-benchmark-20260419-202736-06ebe194",
+  "shuffle": true,
+  "shuffle_seed": null,
+  "pdfs": [
+    "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+    "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+    "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+    "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf"
+  ],
+  "plan": {
+    "pdf_count": 4,
+    "warmup_repeats_per_pdf": 1,
+    "steady_repeats_per_pdf": 8,
+    "cold_repeats_per_pdf": 0,
+    "warmup_runs_total": 4,
+    "steady_runs_total": 32,
+    "cold_runs_total": 0,
+    "steady_wait_s": 10,
+    "cold_wait_s": 600
+  },
+  "results": [
+    {
+      "run_number": 1,
+      "phase": "warmup",
+      "phase_index": 2,
+      "phase_total": 4,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 1,
+      "pdf_order": 2,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+      "requested_at": "2026-04-19T20:28:46.614697+00:00",
+      "http_status": 200,
+      "wall_time_s": 69.57531070709229,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 12,
+      "response_time": 48.2330584526062,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 1000000.0,
+              "start_date": "2024-01-01",
+              "supplier": "REPOWER"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 2334.209794551134,
+          "document_status": "NATIVE",
+          "dram_joules": 78.68448487522983,
+          "energy_joules": 11518.044617949818,
+          "energy_joules_raw": 5265.802132540181,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 48.2330584526062,
+          "gpu_avg_watts": 119.88350462962963,
+          "gpu_joules": 5265.802132540181,
+          "measurement_id": 12,
+          "model_name": "gemma3:12b",
+          "network_joules": 55.82481622695923,
+          "pue_factor": 1.5,
+          "sample_count": 432,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 2,
+      "phase": "warmup",
+      "phase_index": 3,
+      "phase_total": 4,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 1,
+      "pdf_order": 3,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+      "requested_at": "2026-04-19T20:29:11.395833+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.77932071685791,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 13,
+      "response_time": 12.030156373977661,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 10393.11,
+              "start_date": "2021-12-01",
+              "supplier": "HERA COMM S.P.A."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 400.8955121040345,
+          "document_status": "NATIVE",
+          "dram_joules": 13.511314445140671,
+          "energy_joules": 2020.6100728264182,
+          "energy_joules_raw": 932.6665553351037,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 12.030156373977661,
+          "gpu_avg_watts": 124.03597260273973,
+          "gpu_joules": 932.6665553351037,
+          "measurement_id": 13,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.740386813879013,
+          "pue_factor": 1.5,
+          "sample_count": 73,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 3,
+      "phase": "warmup",
+      "phase_index": 4,
+      "phase_total": 4,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 1,
+      "pdf_order": 4,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf",
+      "requested_at": "2026-04-19T20:29:35.874603+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.477715253829956,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 14,
+      "response_time": 11.746902704238892,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-31",
+              "kwh_quantity": 943.0,
+              "start_date": "2022-10-01",
+              "supplier": "MINIPAN S.R.L."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 399.3885889649392,
+          "document_status": "NATIVE",
+          "dram_joules": 13.459480713772791,
+          "energy_joules": 1991.6222865684904,
+          "energy_joules_raw": 914.9001213669483,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.746902704238892,
+          "gpu_avg_watts": 122.55571232876711,
+          "gpu_joules": 914.9001213669483,
+          "measurement_id": 14,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.42552900314331,
+          "pue_factor": 1.5,
+          "sample_count": 73,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 4,
+      "phase": "warmup",
+      "phase_index": 1,
+      "phase_total": 4,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 1,
+      "pdf_order": 1,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+      "requested_at": "2026-04-19T20:30:33.424046+00:00",
+      "http_status": 200,
+      "wall_time_s": 57.547863245010376,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 15,
+      "response_time": 40.29561185836792,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-01-31",
+              "kwh_quantity": 14160.0,
+              "start_date": "2023-12-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1917.8564965724945,
+          "document_status": "NATIVE",
+          "dram_joules": 64.64357247156842,
+          "energy_joules": 10954.157106370429,
+          "energy_joules_raw": 5320.2713352028895,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 40.29561185836792,
+          "gpu_avg_watts": 147.67948870056497,
+          "gpu_joules": 5320.2713352028895,
+          "measurement_id": 15,
+          "model_name": "gemma3:12b",
+          "network_joules": 80.37832751870155,
+          "pue_factor": 1.5,
+          "sample_count": 354,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 5,
+      "phase": "steady",
+      "phase_index": 24,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 6,
+      "pdf_order": 4,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf",
+      "requested_at": "2026-04-19T20:30:58.104131+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.67899513244629,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 16,
+      "response_time": 11.874017000198364,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-31",
+              "kwh_quantity": 943.0,
+              "start_date": "2022-10-01",
+              "supplier": "MINIPAN S.R.L."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 395.0215213000775,
+          "document_status": "NATIVE",
+          "dram_joules": 13.313658224569737,
+          "energy_joules": 2005.0870461522,
+          "energy_joules_raw": 928.3895179101527,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.874017000198364,
+          "gpu_avg_watts": 125.23945833333333,
+          "gpu_joules": 928.3895179101527,
+          "measurement_id": 16,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.42552900314331,
+          "pue_factor": 1.5,
+          "sample_count": 72,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 6,
+      "phase": "steady",
+      "phase_index": 12,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 3,
+      "pdf_order": 4,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf",
+      "requested_at": "2026-04-19T20:31:32.511571+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.405137538909912,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 17,
+      "response_time": 11.785765409469604,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-31",
+              "kwh_quantity": 943.0,
+              "start_date": "2022-10-01",
+              "supplier": "MINIPAN S.R.L."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 399.86985847353935,
+          "document_status": "NATIVE",
+          "dram_joules": 13.467386569673183,
+          "energy_joules": 1994.9554290999354,
+          "energy_joules_raw": 916.6330410234111,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.785765409469604,
+          "gpu_avg_watts": 122.18416438356164,
+          "gpu_joules": 916.6330410234111,
+          "measurement_id": 17,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.42552900314331,
+          "pue_factor": 1.5,
+          "sample_count": 73,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 7,
+      "phase": "steady",
+      "phase_index": 13,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 4,
+      "pdf_order": 1,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+      "requested_at": "2026-04-19T20:32:39.490532+00:00",
+      "http_status": 200,
+      "wall_time_s": 56.975611448287964,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 18,
+      "response_time": 40.29832744598389,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-01-31",
+              "kwh_quantity": 14160.0,
+              "start_date": "2023-12-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1918.9221747219563,
+          "document_status": "NATIVE",
+          "dram_joules": 64.67573958025241,
+          "energy_joules": 11055.64378259798,
+          "energy_joules_raw": 5386.831274096444,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 40.29832744598389,
+          "gpu_avg_watts": 149.5823418079096,
+          "gpu_joules": 5386.831274096444,
+          "measurement_id": 18,
+          "model_name": "gemma3:12b",
+          "network_joules": 80.37832751870155,
+          "pue_factor": 1.5,
+          "sample_count": 354,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 8,
+      "phase": "steady",
+      "phase_index": 30,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 8,
+      "pdf_order": 2,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+      "requested_at": "2026-04-19T20:33:42.881096+00:00",
+      "http_status": 200,
+      "wall_time_s": 53.3881459236145,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 19,
+      "response_time": 38.364569902420044,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 1000000.0,
+              "start_date": "2024-01-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1812.4269865453243,
+          "document_status": "NATIVE",
+          "dram_joules": 61.084494180577174,
+          "energy_joules": 10408.220265695947,
+          "energy_joules_raw": 5065.3020297380635,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 38.364569902420044,
+          "gpu_avg_watts": 148.64808955223882,
+          "gpu_joules": 5065.3020297380635,
+          "measurement_id": 19,
+          "model_name": "gemma3:12b",
+          "network_joules": 55.82481622695923,
+          "pue_factor": 1.5,
+          "sample_count": 335,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 9,
+      "phase": "steady",
+      "phase_index": 9,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 3,
+      "pdf_order": 1,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+      "requested_at": "2026-04-19T20:34:49.852948+00:00",
+      "http_status": 200,
+      "wall_time_s": 56.96756625175476,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 20,
+      "response_time": 40.522332429885864,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-01-31",
+              "kwh_quantity": 14160.0,
+              "start_date": "2023-12-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1928.0807979404929,
+          "document_status": "NATIVE",
+          "dram_joules": 64.9894945610413,
+          "energy_joules": 11109.551323534313,
+          "energy_joules_raw": 5413.297256521341,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 40.522332429885864,
+          "gpu_avg_watts": 149.43169943820223,
+          "gpu_joules": 5413.297256521341,
+          "measurement_id": 20,
+          "model_name": "gemma3:12b",
+          "network_joules": 80.37832751870155,
+          "pue_factor": 1.5,
+          "sample_count": 356,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 10,
+      "phase": "steady",
+      "phase_index": 19,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 5,
+      "pdf_order": 3,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+      "requested_at": "2026-04-19T20:35:24.172863+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.31728482246399,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 21,
+      "response_time": 11.80224323272705,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 10393.11,
+              "start_date": "2021-12-01",
+              "supplier": "HERA COMM S.P.A."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 404.4192276895046,
+          "document_status": "NATIVE",
+          "dram_joules": 13.628978061715316,
+          "energy_joules": 2060.011311591491,
+          "energy_joules_raw": 955.2926686431073,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.80224323272705,
+          "gpu_avg_watts": 126.96089189189189,
+          "gpu_joules": 955.2926686431073,
+          "measurement_id": 21,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.740386813879013,
+          "pue_factor": 1.5,
+          "sample_count": 74,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 11,
+      "phase": "steady",
+      "phase_index": 22,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 6,
+      "pdf_order": 2,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+      "requested_at": "2026-04-19T20:36:27.240907+00:00",
+      "http_status": 200,
+      "wall_time_s": 53.06508445739746,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 22,
+      "response_time": 38.11455821990967,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 1000000.0,
+              "start_date": "2024-01-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1800.5818568170073,
+          "document_status": "NATIVE",
+          "dram_joules": 60.69058387464793,
+          "energy_joules": 10447.97323755964,
+          "energy_joules_raw": 5104.043051014772,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 38.11455821990967,
+          "gpu_avg_watts": 150.81064864864865,
+          "gpu_joules": 5104.043051014772,
+          "measurement_id": 22,
+          "model_name": "gemma3:12b",
+          "network_joules": 55.82481622695923,
+          "pue_factor": 1.5,
+          "sample_count": 333,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 12,
+      "phase": "steady",
+      "phase_index": 7,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 2,
+      "pdf_order": 3,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+      "requested_at": "2026-04-19T20:37:01.815723+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.572636365890503,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 23,
+      "response_time": 11.82506775856018,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 10393.11,
+              "start_date": "2021-12-01",
+              "supplier": "HERA COMM S.P.A."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 406.1687804758549,
+          "document_status": "NATIVE",
+          "dram_joules": 13.681359321972197,
+          "energy_joules": 2041.1560000999234,
+          "energy_joules_raw": 940.9205269354551,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.82506775856018,
+          "gpu_avg_watts": 124.58051351351352,
+          "gpu_joules": 940.9205269354551,
+          "measurement_id": 23,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.740386813879013,
+          "pue_factor": 1.5,
+          "sample_count": 74,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 13,
+      "phase": "steady",
+      "phase_index": 11,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 3,
+      "pdf_order": 3,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+      "requested_at": "2026-04-19T20:37:36.671795+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.8531174659729,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 24,
+      "response_time": 11.680374145507812,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 10393.11,
+              "start_date": "2021-12-01",
+              "supplier": "HERA COMM S.P.A."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 395.9484055638314,
+          "document_status": "NATIVE",
+          "dram_joules": 13.34103082521324,
+          "energy_joules": 1998.413630433275,
+          "energy_joules_raw": 922.9863172331387,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.680374145507812,
+          "gpu_avg_watts": 124.86656944444445,
+          "gpu_joules": 922.9863172331387,
+          "measurement_id": 24,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.740386813879013,
+          "pue_factor": 1.5,
+          "sample_count": 72,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 14,
+      "phase": "steady",
+      "phase_index": 18,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 5,
+      "pdf_order": 2,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+      "requested_at": "2026-04-19T20:38:40.064242+00:00",
+      "http_status": 200,
+      "wall_time_s": 53.389673709869385,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 25,
+      "response_time": 37.51653480529785,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 1000000.0,
+              "start_date": "2024-01-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1769.0006747841835,
+          "document_status": "NATIVE",
+          "dram_joules": 59.62617191211394,
+          "energy_joules": 10148.43852127063,
+          "energy_joules_raw": 4936.998834150789,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 37.51653480529785,
+          "gpu_avg_watts": 148.51600611620793,
+          "gpu_joules": 4936.998834150789,
+          "measurement_id": 25,
+          "model_name": "gemma3:12b",
+          "network_joules": 55.82481622695923,
+          "pue_factor": 1.5,
+          "sample_count": 327,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 15,
+      "phase": "steady",
+      "phase_index": 31,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 8,
+      "pdf_order": 3,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+      "requested_at": "2026-04-19T20:39:14.987570+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.920674800872803,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 26,
+      "response_time": 11.793636322021484,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 10393.11,
+              "start_date": "2021-12-01",
+              "supplier": "HERA COMM S.P.A."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 400.7709041237831,
+          "document_status": "NATIVE",
+          "dram_joules": 13.501971432679056,
+          "energy_joules": 2019.690994683319,
+          "energy_joules_raw": 932.1877875657507,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.793636322021484,
+          "gpu_avg_watts": 124.18680821917809,
+          "gpu_joules": 932.1877875657507,
+          "measurement_id": 26,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.740386813879013,
+          "pue_factor": 1.5,
+          "sample_count": 73,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 16,
+      "phase": "steady",
+      "phase_index": 2,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 1,
+      "pdf_order": 2,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+      "requested_at": "2026-04-19T20:40:20.553274+00:00",
+      "http_status": 200,
+      "wall_time_s": 55.56322693824768,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 27,
+      "response_time": 37.557650089263916,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 1000000.0,
+              "start_date": "2024-01-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1770.7810059189796,
+          "document_status": "NATIVE",
+          "dram_joules": 59.68026793718309,
+          "energy_joules": 10272.34921814452,
+          "energy_joules_raw": 5017.771538240184,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 37.557650089263916,
+          "gpu_avg_watts": 150.78583792048929,
+          "gpu_joules": 5017.771538240184,
+          "measurement_id": 27,
+          "model_name": "gemma3:12b",
+          "network_joules": 55.82481622695923,
+          "pue_factor": 1.5,
+          "sample_count": 327,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 17,
+      "phase": "steady",
+      "phase_index": 16,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 4,
+      "pdf_order": 4,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf",
+      "requested_at": "2026-04-19T20:40:55.461668+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.905868530273438,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 28,
+      "response_time": 11.823684692382812,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-31",
+              "kwh_quantity": 943.0,
+              "start_date": "2022-10-01",
+              "supplier": "MINIPAN S.R.L."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 406.4432270824909,
+          "document_status": "NATIVE",
+          "dram_joules": 13.696708922807376,
+          "energy_joules": 2067.935402782766,
+          "energy_joules_raw": 958.4836658498789,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.823684692382812,
+          "gpu_avg_watts": 127.11532432432432,
+          "gpu_joules": 958.4836658498789,
+          "measurement_id": 28,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.42552900314331,
+          "pue_factor": 1.5,
+          "sample_count": 74,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 18,
+      "phase": "steady",
+      "phase_index": 25,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 7,
+      "pdf_order": 1,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+      "requested_at": "2026-04-19T20:42:04.880903+00:00",
+      "http_status": 200,
+      "wall_time_s": 59.41516184806824,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 29,
+      "response_time": 40.42634725570679,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-01-31",
+              "kwh_quantity": 14160.0,
+              "start_date": "2023-12-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1923.4813347458842,
+          "document_status": "NATIVE",
+          "dram_joules": 64.83305932194526,
+          "energy_joules": 11014.795937593735,
+          "energy_joules_raw": 5354.882897661328,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 40.42634725570679,
+          "gpu_avg_watts": 148.1882647887324,
+          "gpu_joules": 5354.882897661328,
+          "measurement_id": 29,
+          "model_name": "gemma3:12b",
+          "network_joules": 80.37832751870155,
+          "pue_factor": 1.5,
+          "sample_count": 355,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 19,
+      "phase": "steady",
+      "phase_index": 17,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 5,
+      "pdf_order": 1,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+      "requested_at": "2026-04-19T20:43:13.736771+00:00",
+      "http_status": 200,
+      "wall_time_s": 58.85188412666321,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 30,
+      "response_time": 40.498456716537476,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-01-31",
+              "kwh_quantity": 14160.0,
+              "start_date": "2023-12-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1929.705033451319,
+          "document_status": "NATIVE",
+          "dram_joules": 65.04315153798416,
+          "energy_joules": 11029.397134547864,
+          "energy_joules_raw": 5358.183238042607,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 40.498456716537476,
+          "gpu_avg_watts": 147.95863764044944,
+          "gpu_joules": 5358.183238042607,
+          "measurement_id": 30,
+          "model_name": "gemma3:12b",
+          "network_joules": 80.37832751870155,
+          "pue_factor": 1.5,
+          "sample_count": 356,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 20,
+      "phase": "steady",
+      "phase_index": 10,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 3,
+      "pdf_order": 2,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+      "requested_at": "2026-04-19T20:44:18.626527+00:00",
+      "http_status": 200,
+      "wall_time_s": 54.88605499267578,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 31,
+      "response_time": 38.538471937179565,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 1000000.0,
+              "start_date": "2024-01-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1817.3293188214302,
+          "document_status": "NATIVE",
+          "dram_joules": 61.25769653094722,
+          "energy_joules": 10461.99710182184,
+          "energy_joules_raw": 5096.077719195516,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 38.538471937179565,
+          "gpu_avg_watts": 149.0390386904762,
+          "gpu_joules": 5096.077719195516,
+          "measurement_id": 31,
+          "model_name": "gemma3:12b",
+          "network_joules": 55.82481622695923,
+          "pue_factor": 1.5,
+          "sample_count": 336,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 21,
+      "phase": "steady",
+      "phase_index": 27,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 7,
+      "pdf_order": 3,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+      "requested_at": "2026-04-19T20:44:53.338017+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.70974564552307,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 32,
+      "response_time": 11.88880205154419,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 10393.11,
+              "start_date": "2021-12-01",
+              "supplier": "HERA COMM S.P.A."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 407.32211992144585,
+          "document_status": "NATIVE",
+          "dram_joules": 13.726705989147378,
+          "energy_joules": 2038.617185556831,
+          "energy_joules_raw": 938.0292977939607,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.88880205154419,
+          "gpu_avg_watts": 123.37160000000002,
+          "gpu_joules": 938.0292977939607,
+          "measurement_id": 32,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.740386813879013,
+          "pue_factor": 1.5,
+          "sample_count": 75,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 22,
+      "phase": "steady",
+      "phase_index": 21,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 6,
+      "pdf_order": 1,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+      "requested_at": "2026-04-19T20:45:58.884838+00:00",
+      "http_status": 200,
+      "wall_time_s": 55.54290747642517,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 33,
+      "response_time": 40.67822790145874,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-01-31",
+              "kwh_quantity": 14160.0,
+              "start_date": "2023-12-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1938.4366102516651,
+          "document_status": "NATIVE",
+          "dram_joules": 65.29817956098668,
+          "energy_joules": 11123.269183927334,
+          "energy_joules_raw": 5411.777999472238,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 40.67822790145874,
+          "gpu_avg_watts": 148.74932773109245,
+          "gpu_joules": 5411.777999472238,
+          "measurement_id": 33,
+          "model_name": "gemma3:12b",
+          "network_joules": 80.37832751870155,
+          "pue_factor": 1.5,
+          "sample_count": 357,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 23,
+      "phase": "steady",
+      "phase_index": 32,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 8,
+      "pdf_order": 4,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf",
+      "requested_at": "2026-04-19T20:46:33.391201+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.50416874885559,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 34,
+      "response_time": 11.74612021446228,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-31",
+              "kwh_quantity": 943.0,
+              "start_date": "2022-10-01",
+              "supplier": "MINIPAN S.R.L."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 400.7792890071869,
+          "document_status": "NATIVE",
+          "dram_joules": 13.50166008434826,
+          "energy_joules": 2004.1355551576346,
+          "energy_joules_raw": 921.8094210135545,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.74612021446228,
+          "gpu_avg_watts": 123.09231506849315,
+          "gpu_joules": 921.8094210135545,
+          "measurement_id": 34,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.42552900314331,
+          "pue_factor": 1.5,
+          "sample_count": 73,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 24,
+      "phase": "steady",
+      "phase_index": 20,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 5,
+      "pdf_order": 4,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf",
+      "requested_at": "2026-04-19T20:46:58.175444+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.78290343284607,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 35,
+      "response_time": 11.870713233947754,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-31",
+              "kwh_quantity": 943.0,
+              "start_date": "2022-10-01",
+              "supplier": "MINIPAN S.R.L."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 405.9814885258675,
+          "document_status": "NATIVE",
+          "dram_joules": 13.681353769807176,
+          "energy_joules": 2065.181194848451,
+          "energy_joules_raw": 957.1246209366258,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.870713233947754,
+          "gpu_avg_watts": 126.4518918918919,
+          "gpu_joules": 957.1246209366258,
+          "measurement_id": 35,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.42552900314331,
+          "pue_factor": 1.5,
+          "sample_count": 74,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 25,
+      "phase": "steady",
+      "phase_index": 14,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 4,
+      "pdf_order": 2,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+      "requested_at": "2026-04-19T20:47:59.719839+00:00",
+      "http_status": 200,
+      "wall_time_s": 51.54146480560303,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 36,
+      "response_time": 37.87789797782898,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 1000000.0,
+              "start_date": "2024-01-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1790.198090672493,
+          "document_status": "NATIVE",
+          "dram_joules": 60.33286258032604,
+          "energy_joules": 10347.201361548388,
+          "energy_joules_raw": 5047.6032877794405,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 37.87789797782898,
+          "gpu_avg_watts": 150.25172507552873,
+          "gpu_joules": 5047.6032877794405,
+          "measurement_id": 36,
+          "model_name": "gemma3:12b",
+          "network_joules": 55.82481622695923,
+          "pue_factor": 1.5,
+          "sample_count": 331,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 26,
+      "phase": "steady",
+      "phase_index": 1,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 1,
+      "pdf_order": 1,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+      "requested_at": "2026-04-19T20:48:47.038129+00:00",
+      "http_status": 200,
+      "wall_time_s": 37.31467032432556,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 37,
+      "response_time": 22.688682317733765,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 56302.01,
+              "start_date": "2023-12-01",
+              "supplier": "Repower"
+            },
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-02-29",
+              "kwh_quantity": 21910.0,
+              "start_date": "2024-01-01",
+              "supplier": "Repower"
+            },
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-04-30",
+              "kwh_quantity": 21977.0,
+              "start_date": "2024-03-01",
+              "supplier": "Repower"
+            },
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-06-30",
+              "kwh_quantity": 21716.0,
+              "start_date": "2024-05-01",
+              "supplier": "Repower"
+            },
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-08-31",
+              "kwh_quantity": 16483.0,
+              "start_date": "2024-07-01",
+              "supplier": "Repower"
+            },
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-10-31",
+              "kwh_quantity": 16438.0,
+              "start_date": "2024-09-01",
+              "supplier": "Repower"
+            },
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 18199.0,
+              "start_date": "2024-11-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 983.9421920478344,
+          "document_status": "NATIVE",
+          "dram_joules": 33.1587240755016,
+          "energy_joules": 5619.821153506386,
+          "energy_joules_raw": 2729.4465195475877,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 22.688682317733765,
+          "gpu_avg_watts": 148.24343093922653,
+          "gpu_joules": 2729.4465195475877,
+          "measurement_id": 37,
+          "model_name": "gemma3:12b",
+          "network_joules": 80.37832751870155,
+          "pue_factor": 1.5,
+          "sample_count": 181,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 27,
+      "phase": "steady",
+      "phase_index": 8,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 2,
+      "pdf_order": 4,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf",
+      "requested_at": "2026-04-19T20:49:21.442297+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.401149034500122,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 38,
+      "response_time": 11.766190528869629,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-31",
+              "kwh_quantity": 943.0,
+              "start_date": "2022-10-01",
+              "supplier": "MINIPAN S.R.L."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 400.7020518183708,
+          "document_status": "NATIVE",
+          "dram_joules": 13.493965637808287,
+          "energy_joules": 2017.0882818162904,
+          "energy_joules_raw": 930.5295037546811,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.766190528869629,
+          "gpu_avg_watts": 124.30564383561644,
+          "gpu_joules": 930.5295037546811,
+          "measurement_id": 38,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.42552900314331,
+          "pue_factor": 1.5,
+          "sample_count": 73,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 28,
+      "phase": "steady",
+      "phase_index": 29,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 8,
+      "pdf_order": 1,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+      "requested_at": "2026-04-19T20:50:26.071206+00:00",
+      "http_status": 200,
+      "wall_time_s": 54.624655961990356,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 39,
+      "response_time": 40.474762201309204,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-01-31",
+              "kwh_quantity": 14160.0,
+              "start_date": "2023-12-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1922.999495267868,
+          "document_status": "NATIVE",
+          "dram_joules": 64.81847207607645,
+          "energy_joules": 11131.777173965189,
+          "energy_joules_raw": 5433.366815299515,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 40.474762201309204,
+          "gpu_avg_watts": 150.14607323943662,
+          "gpu_joules": 5433.366815299515,
+          "measurement_id": 39,
+          "model_name": "gemma3:12b",
+          "network_joules": 80.37832751870155,
+          "pue_factor": 1.5,
+          "sample_count": 355,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 29,
+      "phase": "steady",
+      "phase_index": 28,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 7,
+      "pdf_order": 4,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf",
+      "requested_at": "2026-04-19T20:51:00.163287+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.08918786048889,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 40,
+      "response_time": 11.773792028427124,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-31",
+              "kwh_quantity": 943.0,
+              "start_date": "2022-10-01",
+              "supplier": "MINIPAN S.R.L."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 398.80814477801323,
+          "document_status": "NATIVE",
+          "dram_joules": 13.43972141264203,
+          "energy_joules": 2040.5628707299327,
+          "energy_joules_raw": 948.1273809626331,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.773792028427124,
+          "gpu_avg_watts": 126.56876712328767,
+          "gpu_joules": 948.1273809626331,
+          "measurement_id": 40,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.42552900314331,
+          "pue_factor": 1.5,
+          "sample_count": 73,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 30,
+      "phase": "steady",
+      "phase_index": 26,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 7,
+      "pdf_order": 2,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+      "requested_at": "2026-04-19T20:52:02.017663+00:00",
+      "http_status": 200,
+      "wall_time_s": 51.850924491882324,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 41,
+      "response_time": 38.11145615577698,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 1000000.0,
+              "start_date": "2024-01-01",
+              "supplier": "REPOWER"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1801.8228828907013,
+          "document_status": "NATIVE",
+          "dram_joules": 60.71311285194497,
+          "energy_joules": 10318.669949697669,
+          "energy_joules_raw": 5016.5773040558,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 38.11145615577698,
+          "gpu_avg_watts": 148.3316006006006,
+          "gpu_joules": 5016.5773040558,
+          "measurement_id": 41,
+          "model_name": "gemma3:12b",
+          "network_joules": 55.82481622695923,
+          "pue_factor": 1.5,
+          "sample_count": 333,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 31,
+      "phase": "steady",
+      "phase_index": 6,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 2,
+      "pdf_order": 2,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta gas - anonimizzato.pdf",
+      "requested_at": "2026-04-19T20:53:04.179265+00:00",
+      "http_status": 200,
+      "wall_time_s": 52.15841507911682,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 42,
+      "response_time": 38.47887873649597,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-12-31",
+              "kwh_quantity": 1000000.0,
+              "start_date": "2024-01-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1818.9274877309801,
+          "document_status": "NATIVE",
+          "dram_joules": 61.30311836589499,
+          "energy_joules": 10548.661741228692,
+          "energy_joules_raw": 5152.210554722254,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 38.47887873649597,
+          "gpu_avg_watts": 150.71023214285714,
+          "gpu_joules": 5152.210554722254,
+          "measurement_id": 42,
+          "model_name": "gemma3:12b",
+          "network_joules": 55.82481622695923,
+          "pue_factor": 1.5,
+          "sample_count": 336,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 32,
+      "phase": "steady",
+      "phase_index": 4,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 1,
+      "pdf_order": 4,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 GAS.pdf",
+      "requested_at": "2026-04-19T20:53:39.305504+00:00",
+      "http_status": 200,
+      "wall_time_s": 25.124645948410034,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 43,
+      "response_time": 11.785437822341919,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-31",
+              "kwh_quantity": 943.0,
+              "start_date": "2022-10-01",
+              "supplier": "MINIPAN S.R.L."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 405.28185740113264,
+          "document_status": "NATIVE",
+          "dram_joules": 13.649028637964877,
+          "energy_joules": 2034.7295407363024,
+          "energy_joules_raw": 937.5554744517707,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.785437822341919,
+          "gpu_avg_watts": 124.79274324324325,
+          "gpu_joules": 937.5554744517707,
+          "measurement_id": 43,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.42552900314331,
+          "pue_factor": 1.5,
+          "sample_count": 74,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 33,
+      "phase": "steady",
+      "phase_index": 3,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 1,
+      "pdf_order": 3,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+      "requested_at": "2026-04-19T20:54:13.609779+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.300657749176025,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 44,
+      "response_time": 11.732507705688477,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 10393.11,
+              "start_date": "2021-12-01",
+              "supplier": "HERA COMM S.P.A."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 402.1270640194416,
+          "document_status": "NATIVE",
+          "dram_joules": 13.551413462191706,
+          "energy_joules": 2036.083047001735,
+          "energy_joules_raw": 941.7102205195232,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.732507705688477,
+          "gpu_avg_watts": 126.24686301369864,
+          "gpu_joules": 941.7102205195232,
+          "measurement_id": 44,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.740386813879013,
+          "pue_factor": 1.5,
+          "sample_count": 73,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 34,
+      "phase": "steady",
+      "phase_index": 15,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 4,
+      "pdf_order": 3,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+      "requested_at": "2026-04-19T20:54:50.375125+00:00",
+      "http_status": 200,
+      "wall_time_s": 26.762524366378784,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 45,
+      "response_time": 13.690376281738281,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 10393.11,
+              "start_date": "2021-12-01",
+              "supplier": "HERA COMM S.P.A."
+            },
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 4296.13,
+              "start_date": "2022-11-01",
+              "supplier": "HERA COMM S.P.A."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 504.0669426321984,
+          "document_status": "NATIVE",
+          "dram_joules": 16.980885856737586,
+          "energy_joules": 2640.69282418118,
+          "energy_joules_raw": 1239.4140542985174,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 13.690376281738281,
+          "gpu_avg_watts": 131.8516847826087,
+          "gpu_joules": 1239.4140542985174,
+          "measurement_id": 45,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.740386813879013,
+          "pue_factor": 1.5,
+          "sample_count": 92,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    },
+    {
+      "run_number": 35,
+      "phase": "steady",
+      "phase_index": 5,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 2,
+      "pdf_order": 1,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\bolletta ee - anonimizzato python.pdf",
+      "requested_at": "2026-04-19T20:55:55.202503+00:00",
+      "http_status": 200,
+      "wall_time_s": 54.82483530044556,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 46,
+      "response_time": 40.291760206222534,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2024-01-31",
+              "kwh_quantity": 14160.0,
+              "start_date": "2023-12-01",
+              "supplier": "Repower"
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 1917.580086737871,
+          "document_status": "NATIVE",
+          "dram_joules": 64.63663824454672,
+          "energy_joules": 11045.372886706471,
+          "energy_joules_raw": 5381.365199488562,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 40.291760206222534,
+          "gpu_avg_watts": 149.4721299435028,
+          "gpu_joules": 5381.365199488562,
+          "measurement_id": 46,
+          "model_name": "gemma3:12b",
+          "network_joules": 80.37832751870155,
+          "pue_factor": 1.5,
+          "sample_count": 354,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": true
+        }
+      }
+    },
+    {
+      "run_number": 36,
+      "phase": "steady",
+      "phase_index": 23,
+      "phase_total": 32,
+      "batch_id": "server-benchmark-20260419-202736-06ebe194",
+      "repeat_index_for_pdf": 6,
+      "pdf_order": 3,
+      "pdf": "D:\\Projects\\Bachelorproef\\Dataset\\HERA OTTOBRE 2022 ENERGIA ELETTRICA.pdf",
+      "requested_at": "2026-04-19T20:56:29.871274+00:00",
+      "http_status": 200,
+      "wall_time_s": 24.66628122329712,
+      "ok": true,
+      "attempts_used": 1,
+      "measurement_id": 47,
+      "response_time": 11.768025636672974,
+      "setup_time_s": 0.0,
+      "document_status": "NATIVE",
+      "payload": {
+        "extracted_data": {
+          "periodes": [
+            {
+              "co2eq_quantity": 0.0,
+              "end_date": "2022-12-01",
+              "kwh_quantity": 10393.11,
+              "start_date": "2021-12-01",
+              "supplier": "HERA COMM S.P.A."
+            }
+          ]
+        },
+        "metrics": {
+          "batch_id": "server-benchmark-20260419-202736-06ebe194",
+          "carbon_intensity_gco2_kwh": 167.0,
+          "cpu_joules": 400.9113445878029,
+          "document_status": "NATIVE",
+          "dram_joules": 13.511050930846977,
+          "energy_joules": 1998.935467517648,
+          "energy_joules_raw": 918.2012494931156,
+          "energy_source": "NVML+CodeCarbon",
+          "execution_time_s": 11.768025636672974,
+          "gpu_avg_watts": 122.9334794520548,
+          "gpu_joules": 918.2012494931156,
+          "measurement_id": 47,
+          "model_name": "gemma3:12b",
+          "network_joules": 13.740386813879013,
+          "pue_factor": 1.5,
+          "sample_count": 73,
+          "setup_energy_joules": 0.0,
+          "setup_time_s": 0.0,
+          "used_retry": false
+        }
+      }
+    }
+  ],
+  "dashboard_export": {
+    "status_code": 200,
+    "output": "D:\\Projects\\Bachelorproef\\DocExtract\\parallel_benchmark\\benchmark_onprem_dashboard_export.json",
+    "measurement_count": 36
+  }
+}
