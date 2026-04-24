@@ -91,10 +91,10 @@
             <li>Download <strong>LibreHardwareMonitor</strong> van <a href="https://github.com/LibreHardwareMonitor/LibreHardwareMonitor" target="_blank">GitHub</a> en pak het zip-bestand uit</li>
             <li>Start <code>LibreHardwareMonitor.exe</code> <strong>als Administrator</strong></li>
             <li>Activeer de webserver: <strong>Options → Remote Web Server → Run</strong> (poort 8085)</li>
-            <li>Verifieer: <code>http://localhost:8085/data.json</code> moet een JSON-boom teruggeven met een CPU Package Power-sensor</li>
+            <li>Verifieer: <code>http://localhost:8085/data.json</code> moet een JSON-boom teruggeven met minstens CPU- en GPU-power-sensoren</li>
         </ol>
         <p style="margin-bottom:0;"><small>
-            De energiewaarde wordt automatisch ingevuld via de CPU Package Power-sensor.
+            Tijdens benchmarks kan de runner de totale gemeten energie en componenten automatisch invullen via LibreHardwareMonitor.
             <strong>Warm-up runs</strong> worden <em>niet</em> opgeslagen in de DB.
         </small></p>
     </details>
@@ -134,9 +134,9 @@
     <div class="energy-panel" id="energyPanel">
         <h3>Meetpunt opslaan in Centrale DB</h3>
         <p>
-            Energiewaarde (Joules) voor dit meetpunt — automatisch ingevuld via LibreHardwareMonitor:
+            Totale energiewaarde (Joules) voor dit meetpunt:
         </p>
-        <label for="energyInput">Energie (Joules) — CPU Package Power (LHM):</label>
+        <label for="energyInput">Totale systeemenergie (Joules):</label>
         <input type="number" id="energyInput" min="0" step="0.001" placeholder="bijv. 42.5" value="0">
         <div id="pendingInfo" style="font-size:13px;color:#555;margin-top:8px;"></div>
         <div class="btn-row">
@@ -192,10 +192,22 @@
     const BATCH_ID    = URL_PARAMS.get('batch_id') || null;
     const MODEL_DTYPE = 'q4';
 
-    // Thesis: 5 doelvelden — bijna-klare JSON, model fixt alleen datums
-    const EXTRACTION_PROMPT = `Fix the dates to YYYY-MM-DD format. Change nothing else. Return ONLY the corrected JSON.
+    // Thesis: LLM extraheert 4 velden; co2eq_quantity wordt berekend in postCleanExtracted (kwh × 200.5 gCO₂/kWh)
+    const SYSTEM_PROMPT = `You are a JSON extraction assistant for Italian energy invoices. You only output valid JSON objects, never arrays or prose.
 
-`;
+Extract exactly these four fields and return only the JSON object:
+{
+  "supplier": null,
+  "start_date": null,
+  "end_date": null,
+  "kwh_quantity": null
+}
+
+Rules:
+- supplier: the energy SELLER/VENDOR issuing this invoice. Look for the company in the header, or cues like "fornitore", "societa emittente", "vendita". Prefer names like "Hera", "Repower", "Enel", "Eni" over distribution companies. Never use distribution/grid companies ("Distribuzione", "INRETE", "rete", "pronto intervento", "trasporto") as supplier. Use null if not found.
+- start_date / end_date: the billing supply period in YYYY-MM-DD. Look for "fornitura da ... a ...", "periodo dal ... al ...", "competenza", or Italian month names like "ottobre 2022". Use null if not found.
+- kwh_quantity: total kWh consumed in this billing period (a number). Ignore meter IDs, historical annual F1/F2/F3 totals, and power ratings in kW. Use null if not found or only Smc given.
+- For missing fields always use null, never omit the key.`;
 
     // ============================================================
     // STATE
@@ -233,8 +245,59 @@
     const progressFill = document.getElementById('progressFill');
     const offlineBadge = document.getElementById('offlineBadge');
 
+    try {
+        performance.setResourceTimingBufferSize(1000);
+    } catch (_) {
+        // Niet alle browsers ondersteunen dit; best effort is voldoende.
+    }
+
     function setStatus(msg) { statusEl.innerText = msg; }
     function setProgress(pct) { progressFill.style.width = `${pct}%`; }
+
+    function getResourceTransferBytes() {
+        return performance.getEntriesByType('resource').reduce((sum, entry) => {
+            const value =
+                Number(entry.transferSize || 0) ||
+                Number(entry.encodedBodySize || 0) ||
+                Number(entry.decodedBodySize || 0) ||
+                0;
+            return sum + Math.max(value, 0);
+        }, 0);
+    }
+
+    async function startEnergySession() {
+        try {
+            const resp = await fetch('/api/energy/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            });
+            if (!resp.ok) return null;
+            const payload = await resp.json();
+            return payload.session_id || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    async function stopEnergySession(sessionId, wallTimeS, networkBytesEstimate) {
+        if (!sessionId) return null;
+        try {
+            const resp = await fetch('/api/energy/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session_id: sessionId,
+                    wall_time_s: wallTimeS,
+                    network_bytes_estimate: networkBytesEstimate,
+                })
+            });
+            if (!resp.ok) return null;
+            return await resp.json();
+        } catch (_) {
+            return null;
+        }
+    }
 
     // ============================================================
     // Service Worker + offline detectie
@@ -275,6 +338,13 @@
     async function loadModel() {
         if (activeModel) return;
 
+        // Na een vorige device lost: wacht zodat Chrome de GPU context volledig kan opruimen
+        if (window.__gpuDeviceLost) {
+            setStatus('GPU context herstellen (2s)...');
+            await new Promise(r => setTimeout(r, 2000));
+            window.__gpuDeviceLost = false;
+        }
+
         const hasWebGPU = await checkWebGPU();
         setStatus(`Model ${MODEL_ID} laden (q4 kwantisatie)...`);
         progressBar.style.display = 'block';
@@ -314,9 +384,10 @@
     // ============================================================
     // Inferentie helper — tekst-only input via chat template
     // ============================================================
-    async function runInference(promptText, maxNewTokens = 256) {
+    async function runInference(userText, maxNewTokens = 256, systemOverride = null) {
+        // Gemma 3 ondersteunt geen 'system' role — instructies in eerste user message
         const messages = [
-            { role: 'user', content: promptText }
+            { role: 'user', content: (systemOverride ?? SYSTEM_PROMPT) + '\n\n' + userText }
         ];
         const inputs = activeTokenizer.apply_chat_template(messages, {
             add_generation_prompt: true,
@@ -347,7 +418,35 @@
             setProgress(10 + (i / pdf.numPages) * 30);
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
-            fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+            const pageLines = [];
+            let currentLine = [];
+            let lastY = null;
+            let lastX = null;
+
+            for (const item of textContent.items) {
+                const text = (item.str || '').trim();
+                if (!text) continue;
+
+                const x = Array.isArray(item.transform) ? item.transform[4] : null;
+                const y = Array.isArray(item.transform) ? item.transform[5] : null;
+                const yJump = lastY !== null && y !== null && Math.abs(y - lastY) > 2;
+                const wrappedLine = lastX !== null && x !== null && x + 5 < lastX;
+
+                if ((yJump || wrappedLine) && currentLine.length) {
+                    pageLines.push(currentLine.join(' '));
+                    currentLine = [];
+                }
+
+                currentLine.push(text);
+                lastY = y;
+                lastX = x;
+            }
+
+            if (currentLine.length) {
+                pageLines.push(currentLine.join(' '));
+            }
+
+            fullText += pageLines.join('\n') + '\n\n';
         }
 
         // Thesis: NATIVE als >100 extraheerbare tekens, anders SCAN
@@ -360,6 +459,7 @@
     // ============================================================
     function preprocessText(raw) {
         return raw
+            .replace(/\b(?:[A-Za-z]\s){3,}[A-Za-z]\b/g, match => match.replace(/\s+/g, ''))
             .replace(/[ \t]+/g, ' ')
             .replace(/\n{3,}/g, '\n\n')
             .replace(/(\d)\s*\.\s*(\d)/g, '$1.$2')
@@ -368,77 +468,152 @@
     }
 
     // ============================================================
-    // Pre-extractie: regex haalt kerndata uit tekst, bouwt compact
-    // pakketje voor het LLM (~200 tekens i.p.v. 1800+)
+    // Selecteer compacte, relevante tekstsnippets zonder de velden vooraf in te vullen.
+    // Zo blijft de prompt klein, maar vermijdt de pipeline foutieve "vooringevulde" waarden.
     // ============================================================
     function preExtractSummary(text) {
-        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+        const rawLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+        const noisyLinePatterns = [
+            /^HEBN\d+$/i,
+            /^FirstPageCheck$/i,
+            /^jcbZ/i,
+            /Utilizza il QR code/i,
+            /\bQR code\b/i,
+            /^[.:_-]{8,}$/,
+            /^[A-Za-z0-9;:]{60,}$/,
+            /^\*?\d{10,}\*?$/,
+            /(?:\b\d{8,}\b.*){2,}/,
+            /(?:\b[A-Z0-9]{12,}\b.*){2,}/,
+            /(?:\.\s*){12,}/
+        ];
+        const lines = rawLines
+            .map(line => line.replace(/\s{2,}/g, ' ').trim())
+            .filter(line => !noisyLinePatterns.some(re => re.test(line)))
+            .filter(line => (line.match(/[A-Za-z]/g) || []).length >= 3)
+            .filter(line => (line.match(/\d/g) || []).length < 40)
+            .filter(line => !/\b\d{12,}\b/.test(line))
+            .filter(line => line.length <= 220);
+        const seen = new Set();
+        const selectedHeader = [];
+        const selectedSupplier = [];
+        const selectedCustomer = [];
+        const selectedPeriod = [];
+        const selectedQuantity = [];
+        const selectedCo2 = [];
 
-        // --- 1. Leverancier: zoek in tekst naar bedrijfsnaam + Italiaans suffix ---
-        let supplier = '';
-        // Match bedrijfsnaam vóór suffix (spa, srl, etc.) — max 60 tekens voor de suffix
-        const supplierRe = /([\w\s]{2,60}?\b(?:s\.?p\.?a|s\.?r\.?l|s\.?a\.?s|s\.?n\.?c))\b/i;
-        const supplierMatch = text.match(supplierRe);
-        if (supplierMatch) {
-            supplier = supplierMatch[1].trim();
-        }
+        const supplierPatterns = [
+            /\bsociet[aà]\s+emittente\b/i,
+            /\bfornitore\b/i,
+            /\bs\.?p\.?a\b/i,
+            /\bs\.?r\.?l\b/i,
+            /\bs\.?a\.?s\b/i,
+            /\bs\.?n\.?c\b/i,
+            /\bhera\b/i,
+            /\brepower\b/i,
+        ];
+        // Regels die niet de energieleverancier zijn, ook al matchen ze supplierPatterns
+        const supplierBlocklistPatterns = [
+            /\bpronto\s+intervento\b/i,
+            /\bdistribuzione\b/i,
+            /\binrete\b/i,
+            /\brete\s+elettrica\b/i,
+            /\bgestione\s+rete\b/i,
+            /\btrasporto\b/i,
+            /\boperatore\s+di\s+rete\b/i,
+        ];
+        const customerPatterns = [
+            /\bintestat[ao]\b/i,
+            /\bservizi intestati\b/i,
+            /\bcodice cliente\b/i,
+            /\bpunto di prelievo\b/i,
+            /\bpunto di riconsegna\b/i,
+        ];
+        // Alleen specifieke datum- en periodepatronen — geen losse stopwoorden
+        const periodPatterns = [
+            /\bfornitura\b/i,
+            /\bperiodo\b/i,
+            /\bcompetenza\b/i,
+            /\b\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}\b/,
+            /\b\d{1,2}\s+[A-Za-zàèéìòù]+\s+\d{4}\b/i,
+            /\b(gennaio|febbraio|marzo|aprile|maggio|giugno|luglio|agosto|settembre|ottobre|novembre|dicembre)\b/i,
+        ];
+        // Historische jaarverbruiksregels (F1/F2/F3, annuo, storici) uitsluiten uit kWh-sectie
+        const kwhNoisePatterns = [
+            /\b(f1|f2|f3)\b/i,
+            /\bannuo\b/i,
+            /\bstoric[oi]\b/i,
+            /\bfonte\b/i,
+            /\bconsumi\s+storici\b/i,
+        ];
+        const kwhPatterns = [
+            /\bkwh\b/i,
+            /\benergia\s+attiva\b/i,
+            /\benergia\s+reattiva\b/i,
+            /\benergia\b/i,
+            /\bconsumo\b/i,
+            /\bimposta\s+erariale\b/i,
+            /\bquantit[aà]\b/i,
+        ];
+        // co2eq_quantity wordt berekend (kwh × coëfficiënt), niet geëxtraheerd
+        const co2Patterns = [];
 
-        // --- 2. Leveringsperiode: "fornitura dal X al Y" ---
-        let periodStart = '', periodEnd = '';
-        // Patroon 1: "fornitura dal 1 dicembre 2024 al 31 dicembre 2024"
-        const periodRe = /fornitura\s+dal\s+[\w\s]*?(\d{1,2})\s+(\w+)\s+(\d{4})\s+.*?al\s+[\w\s]*?(\d{1,2})\s+(\w+)\s+(\d{4})/i;
-        const periodMatch = text.match(periodRe);
-        if (periodMatch) {
-            periodStart = `${periodMatch[1]} ${periodMatch[2]} ${periodMatch[3]}`;
-            periodEnd   = `${periodMatch[4]} ${periodMatch[5]} ${periodMatch[6]}`;
-        }
-        // Patroon 2: "dal dd/mm/yyyy al dd/mm/yyyy"
-        if (!periodStart) {
-            const dateRe = /dal\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})\s+al\s+(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4})/i;
-            const dateMatch = text.match(dateRe);
-            if (dateMatch) { periodStart = dateMatch[1]; periodEnd = dateMatch[2]; }
-        }
-
-        // --- 3. kWh verbruik: F1+F2+F3 of totaal ---
-        // Zoek maandelijkse meterdata: "F1 10.179 1,00 10.179" na "rilevata effettivi"
-        const f1Re = /F1\s+([\d.]+)\s+1[,.]00\s+([\d.]+)/g;
-        const f2Re = /F2\s+([\d.]+)\s+1[,.]00\s+([\d.]+)/g;
-        const f3Re = /F3\s+([\d.]+)\s+1[,.]00\s+([\d.]+)/g;
-        // Neem de laatste match (= werkelijke meting, niet de nulmeting)
-        let f1 = 0, f2 = 0, f3 = 0;
-        let m;
-        while ((m = f1Re.exec(text)) !== null) f1 = parseFloat(m[2].replace('.', ''));
-        while ((m = f2Re.exec(text)) !== null) f2 = parseFloat(m[2].replace('.', ''));
-        while ((m = f3Re.exec(text)) !== null) f3 = parseFloat(m[2].replace('.', ''));
-        const totalKwh = f1 + f2 + f3;
-
-        // Fallback: "Imposta Erariale XX.XXX kWh" of "totale (kWh)" rij
-        let fallbackKwh = '';
-        if (totalKwh === 0) {
-            const erarRe = /Imposta\s+Erariale.*?([\d.,]+)\s*kWh/i;
-            const erarMatch = text.match(erarRe);
-            if (erarMatch) {
-                // Italiaans formaat: "14.160" = 14160 (punt als duizendtalscheidingsteken)
-                fallbackKwh = erarMatch[1].replace(/\./g, '').replace(',', '.');
-            }
-        }
-
-        // --- 4. CO2 ---
-        let co2 = '0';
-        const co2Re = /co2.*?([\d.,]+)\s*(kg|ton)/i;
-        const co2Match = text.match(co2Re);
-        if (co2Match) co2 = co2Match[1];
-
-        // --- Bouw bijna-klare JSON — model hoeft alleen datums te fixen ---
-        const kwh = totalKwh > 0 ? totalKwh : (parseFloat(fallbackKwh) || 0);
-        const obj = {
-            supplier: supplier || 'unknown',
-            start_date: periodStart || 'unknown',
-            end_date: periodEnd || 'unknown',
-            kwh_quantity: kwh,
-            co2eq_quantity: parseFloat(co2) || 0
+        const pushLine = (bucket, line) => {
+            if (!line || seen.has(line)) return;
+            seen.add(line);
+            bucket.push(line.slice(0, 180));
         };
-        return JSON.stringify(obj);
+
+        const pushMatches = (bucket, patterns, contextSize = 0, limit = 8, excludePatterns = []) => {
+            let count = 0;
+            lines.forEach((line, idx) => {
+                if (count >= limit) return;
+                if (!patterns.some(re => re.test(line))) return;
+                if (excludePatterns.some(re => re.test(line))) return;
+                for (let offset = -contextSize; offset <= contextSize; offset++) {
+                    const neighbor = lines[idx + offset];
+                    if (neighbor) pushLine(bucket, neighbor);
+                }
+                count += 1;
+            });
+        };
+
+        lines.slice(0, 4).forEach(line => pushLine(selectedHeader, line));
+        // Supplier: contextSize=1, blocklist filtert distributeurs/servicelijnen
+        pushMatches(selectedSupplier, supplierPatterns, 1, 6, supplierBlocklistPatterns);
+        pushMatches(selectedCustomer, customerPatterns, 0, 3);
+        // Period: fornitura krijgt contextSize=2 zodat "da [datum] a [datum]" volledig zichtbaar is
+        lines.forEach((line, idx) => {
+            if (/\bfornitura\b/i.test(line)) {
+                for (let offset = -1; offset <= 3; offset++) {
+                    const neighbor = lines[idx + offset];
+                    if (neighbor) pushLine(selectedPeriod, neighbor);
+                }
+            }
+        });
+        pushMatches(selectedPeriod, periodPatterns, 1, 8);
+        // kWh: historische F1/F2/F3 en jaarverbruiksregels uitsluiten
+        pushMatches(selectedQuantity, kwhPatterns, 1, 8, kwhNoisePatterns);
+        pushMatches(selectedCo2, co2Patterns, 0, 3);
+
+        const containsKwh = /\bkwh\b/i.test(text);
+        const containsSmc = /\bsmc\b/i.test(text);
+        const documentTypeHint = containsKwh ? 'electricity-like' : (containsSmc ? 'gas-like' : 'unknown');
+
+        const prioritySections = [
+            { label: 'Header lines:', lines: selectedHeader },
+            { label: 'Supplier candidate lines:', lines: selectedSupplier },
+            { label: 'Period lines:', lines: selectedPeriod },
+            { label: 'Consumption and quantity lines:', lines: selectedQuantity },
+            { label: 'Customer or delivery lines (lower trust for supplier):', lines: selectedCustomer },
+            { label: 'CO2 lines:', lines: selectedCo2 },
+        ];
+        const MAX_CHARS = 1800;
+        let snippet = `Document type hint: ${documentTypeHint}\n\n`;
+        for (const sec of prioritySections) {
+            const block = sec.label + '\n' + (sec.lines.length ? sec.lines.join('\n') : '<none>') + '\n\n';
+            if (snippet.length + block.length <= MAX_CHARS) snippet += block;
+        }
+        return `Relevant invoice evidence:\n${snippet.trim()}`;
     }
 
     // ============================================================
@@ -468,11 +643,81 @@
         }
     }
 
-    function validateExtracted(data) {
-        if (!data) return false;
-        // Thesis: alle 5 doelvelden moeten aanwezig zijn
-        return ['supplier', 'start_date', 'end_date', 'kwh_quantity', 'co2eq_quantity']
-            .every(f => data[f] !== null && data[f] !== undefined && String(data[f]).trim() !== '');
+
+    // ============================================================
+    // Pre-cleaner: verrijk evidence met gestructureerde hints zodat
+    // het LLM de relevante waarden makkelijker herkent
+    // ============================================================
+    const IT_MONTHS = { gennaio:1,febbraio:2,marzo:3,aprile:4,maggio:5,giugno:6,luglio:7,agosto:8,settembre:9,ottobre:10,novembre:11,dicembre:12 };
+
+    function buildEvidenceHints(processedText) {
+        const hints = [];
+
+        // Leveringsperiode als leesbare zin zodat het model de datums direct ziet
+        const fornMatch = processedText.match(/fornitura\s+da\s+(?:\w+\s+)?(\d{1,2}\s+[a-zàèéìòù]+\s+\d{4}|\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{4})\s+a\s+(?:\w+\s+)?(\d{1,2}\s+[a-zàèéìòù]+\s+\d{4}|\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{4})/i);
+        if (fornMatch) hints.push(`Supply period: from ${fornMatch[1]} to ${fornMatch[2]}`);
+
+        if (!fornMatch) {
+            const periodMatch = processedText.match(/periodo\s+dal?\s+(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{4}|\d{1,2}\s+[a-zàèéìòù]+\s+\d{4})\s+al?\s+(\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{4}|\d{1,2}\s+[a-zàèéìòù]+\s+\d{4})/i);
+            if (periodMatch) hints.push(`Supply period: from ${periodMatch[1]} to ${periodMatch[2]}`);
+        }
+
+        // kWh-verbruiksregels zonder historische F1/F2/F3 ruis
+        const kwhLines = processedText.split('\n')
+            .filter(l => /\bkwh\b/i.test(l) && !/\b(f1|f2|f3|annuo|storic|fonte)\b/i.test(l))
+            .slice(0, 3);
+        kwhLines.forEach(l => hints.push(l.trim()));
+
+        return hints.length ? '\n\nKey invoice lines:\n' + hints.join('\n') : '';
+    }
+
+    // ============================================================
+    // Post-cleaner: normaliseer LLM-output zonder velden in te vullen
+    // Corrigeert enkel formaat-fouten: datumnotatie en getal-parsing
+    // ============================================================
+    function postCleanExtracted(data) {
+        if (!data) return data;
+        const cleaned = { ...data };
+
+        // Datums: converteer Italiaanse tekstdatums en dd/mm/yyyy naar YYYY-MM-DD
+        for (const field of ['start_date', 'end_date']) {
+            const v = cleaned[field];
+            if (!v || typeof v !== 'string') continue;
+            // Al correct YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}$/.test(v.trim())) continue;
+            // dd/mm/yyyy of dd.mm.yyyy of dd-mm-yyyy
+            const dmyMatch = v.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+            if (dmyMatch) {
+                cleaned[field] = `${dmyMatch[3]}-${dmyMatch[2].padStart(2,'0')}-${dmyMatch[1].padStart(2,'0')}`;
+                continue;
+            }
+            // "1 dicembre 2024" of "31 gennaio 2025"
+            const itMatch = v.match(/(\d{1,2})\s+([a-zàèéìòù]+)\s+(\d{4})/i);
+            if (itMatch) {
+                const mo = IT_MONTHS[itMatch[2].toLowerCase()];
+                if (mo) cleaned[field] = `${itMatch[3]}-${String(mo).padStart(2,'0')}-${itMatch[1].padStart(2,'0')}`;
+            }
+        }
+
+        // kWh: zorg dat het een getal is, geen string met eenheid
+        const kwhV = cleaned['kwh_quantity'];
+        if (kwhV !== null && kwhV !== undefined && typeof kwhV !== 'number') {
+            const s = String(kwhV).replace(/[^\d.,]/g, '');
+            const parsed = parseFloat(s.replace(/\.(?=\d{3})/g, '').replace(',', '.'));
+            if (!isNaN(parsed)) cleaned['kwh_quantity'] = parsed;
+        }
+
+        // co2eq_quantity: bereken altijd op basis van kWh × 200,5 gCO₂/kWh (Belgische/EU mix 2024)
+        // Niet extraheren uit de factuur — dit is een afgeleide waarde per meetprotocol
+        const CO2_INTENSITY_G_PER_KWH = 200.5;
+        const kwhFinal = cleaned['kwh_quantity'];
+        if (typeof kwhFinal === 'number' && !isNaN(kwhFinal)) {
+            cleaned['co2eq_quantity'] = parseFloat((kwhFinal * CO2_INTENSITY_G_PER_KWH / 1000).toFixed(3));
+        } else {
+            cleaned['co2eq_quantity'] = null;
+        }
+
+        return cleaned;
     }
 
     // ============================================================
@@ -483,6 +728,8 @@
         warmupBtn.disabled = true;
         submitBtn.disabled = true;
         progressBar.style.display = 'block';
+        // Fix 5: reset teller zodat herhaalde warm-up correct telt
+        warmupsDone = 0;
 
         try {
             await loadModel();
@@ -492,11 +739,22 @@
                 setStatus(`Warm-up run ${i}/${WARMUP_RUNS}: WebGPU compute shaders activeren...`);
                 setProgress((i / WARMUP_RUNS) * 100);
 
-                // Echte inferentie — kort prompt om de WebGPU pipeline volledig te initialiseren
+                const wuStart = performance.now();
                 await runInference('Hello', 5);
+                const wuTimeS = (performance.now() - wuStart) / 1000;
 
                 warmupsDone = i;
                 document.getElementById(`wu${i}`).className = 'wu-dot done';
+                addHistoryRow({
+                    run_index: i,
+                    document_status: '—',
+                    response_time: wuTimeS,
+                    setup_time_s: 0,
+                    energy_joules: 0,
+                    supplier: null,
+                    kwh_quantity: null,
+                    db_id: 'WU',
+                }, true);
             }
 
             const statusEl2 = document.getElementById('warmupStatus');
@@ -533,6 +791,10 @@
 
     async function saveMeasurement(energyJoules) {
         const data = { ...pendingMeasurement, energy_joules: energyJoules };
+        const cpu = Number(data.cpu_joules || 0);
+        const gpu = Number(data.gpu_joules || 0);
+        const network = Number(data.network_joules || 0);
+        data.other_system_joules = Math.max(energyJoules - (cpu + gpu + network), 0);
         const syncEl = document.getElementById('syncStatus');
         window.__lastMeasurement = data;
 
@@ -619,8 +881,13 @@
         progressBar.style.display = 'block';
         setProgress(0);
 
+        // Fix 3: buiten try gedeclareerd zodat catch het kan stoppen bij exceptions
+        let energySessionId = null;
+
         try {
             const mem = navigator.deviceMemory || '?';
+            const networkBytesBefore = getResourceTransferBytes();
+            energySessionId = benchmarkMode === 'warmup' ? null : await startEnergySession();
 
             // Setup Stage: model laden (als niet reeds geladen via warm-up)
             const setupStart = performance.now();
@@ -644,10 +911,10 @@
                     'Gebruik een native (digitale) PDF voor betrouwbare metingen.';
             }
 
-            // Pre-extractie: regex haalt kerndata, bouwt compact pakketje (~200 tekens)
+            // Compacte evidence-selectie + pre-cleaner hints
             const processedText = preprocessText(pdfText);
-            const truncatedText = preExtractSummary(processedText);
-            console.log('=== LLM INPUT ===\n' + EXTRACTION_PROMPT + truncatedText + '\n=== END ===');
+            const evidenceText = preExtractSummary(processedText) + buildEvidenceHints(processedText);
+            console.log('=== SYSTEM PROMPT ===\n' + SYSTEM_PROMPT + '\n=== USER (evidence) ===\n' + evidenceText + '\n=== END ===');
 
             setStatus(`Gemma 3 1B inferentie via WebGPU (doc: ${documentStatus})...`);
             setProgress(50);
@@ -656,34 +923,48 @@
             performance.mark('extraction-start');
             const genStart = performance.now();
 
-            // Poging 1 — hoofdextractie (max 140 tokens: JSON voor 5 velden is ~40 tokens)
-            let rawOutput = await runInference(EXTRACTION_PROMPT + truncatedText, 140);
-            let extracted = parseExtractedJSON(rawOutput);
+            // Poging 1 — hoofdextractie: system prompt bevat alle instructies, user = alleen evidence
+            let rawOutput = await runInference(evidenceText, 150);
+            let extracted = postCleanExtracted(parseExtractedJSON(rawOutput));
 
-            // Poging 2 — retry met korter prompt + minder tokens om GPU-crash te vermijden
-            if (!validateExtracted(extracted)) {
+            // Poging 2 — retry als een of meer velden ontbreken
+            if (!extracted || ['supplier','start_date','end_date','kwh_quantity'].some(f => extracted[f] === null || extracted[f] === undefined || String(extracted[f]).trim() === '')) {
                 setStatus('Eerste extractie onvolledig, retry met gefocust prompt...');
-                const retryPrompt = `Convert to JSON with dates as YYYY-MM-DD. Return ONLY JSON.\n\n${truncatedText}`;
-                rawOutput = await runInference(retryPrompt, 140);
-                extracted = parseExtractedJSON(rawOutput);
+                const missingFields = ['supplier','start_date','end_date','kwh_quantity']
+                    .filter(f => !extracted || extracted[f] === null || extracted[f] === undefined || String(extracted[f]).trim() === '');
+                const missing = missingFields.join(', ');
+                // Als alleen kwh_quantity ontbreekt: stuur gefocuste kWh-only evidence
+                let retryEvidence = evidenceText;
+                if (missingFields.length === 1 && missingFields[0] === 'kwh_quantity') {
+                    const kwhLines = processedText.split('\n')
+                        .filter(l => /\bkwh\b/i.test(l) && !/\b(f1|f2|f3|annuo|storic|fonte)\b/i.test(l))
+                        .slice(0, 6).map(l => l.trim()).join('\n');
+                    retryEvidence = `Find the total kWh consumed in this billing period. Ignore F1/F2/F3 annual totals.\n\nLines containing kWh:\n${kwhLines || evidenceText}\n\nAlready extracted (keep these):\n${JSON.stringify({...extracted, kwh_quantity: null})}`;
+                }
+                const retrySystem = SYSTEM_PROMPT + `\n\nIMPORTANT: The following fields are still missing and must be filled: ${missing}. Search carefully in the evidence for these values.`;
+                rawOutput = await runInference(retryEvidence, 150, retrySystem);
+                extracted = postCleanExtracted(parseExtractedJSON(rawOutput));
             }
 
             const genTimeS = (performance.now() - genStart) / 1000;
+            const networkBytesAfter = getResourceTransferBytes();
+            const networkBytesEstimate = Math.max(networkBytesAfter - networkBytesBefore, 0);
             performance.mark('extraction-end');
             performance.measure('extraction', 'extraction-start', 'extraction-end');
 
             const totalTimeS = setupTimeS + genTimeS;
+            const energyMetrics = benchmarkMode === 'warmup'
+                ? null
+                : await stopEnergySession(energySessionId, totalTimeS, networkBytesEstimate);
             setProgress(80);
             setStatus('Model-output parsen naar JSON...');
-            const isValid = validateExtracted(extracted);
-
-            if (!isValid) {
+            // Incomplete extracties worden toch opgeslagen (Gemma 3 1B scope — zie thesis resultaten)
+            const hasNullFields = extracted && ['supplier','start_date','end_date','kwh_quantity']
+                .some(f => extracted[f] === null || extracted[f] === undefined);
+            if (hasNullFields) {
                 const warnEl = document.getElementById('validationWarn');
                 warnEl.style.display = 'block';
-                warnEl.innerText =
-                    `Extractie onvolledig — niet alle 5 doelvelden aanwezig. ` +
-                    `Run wordt gediskwalificeerd (HTTP 422). ` +
-                    `Model output: ${String(rawOutput || '').substring(0, 300)}`;
+                warnEl.innerText = `Waarschuwing: niet alle velden geëxtraheerd (wordt toch opgeslagen). Model output: ${String(rawOutput || '').substring(0, 200)}`;
             }
 
             runCount++;
@@ -712,8 +993,8 @@
                     <div>Doc Complexiteit</div>
                 </div>
                 <div class="metric-card">
-                    <div class="metric-value">LHM / ADB</div>
-                    <div>Energiemeting (extern)</div>
+                    <div class="metric-value">${(energyMetrics?.energy_joules || 0).toFixed(1)}J</div>
+                    <div>Gemeten systeemenergie</div>
                 </div>
             `;
             document.getElementById('result').style.display = 'block';
@@ -727,15 +1008,22 @@
                 model_size:               MODEL_ID,
                 response_time:            genTimeS,     // Generatie Stage (Thesis)
                 setup_time_s:             setupTimeS,   // Setup Stage: model load (Thesis)
-                energy_joules:            0.0,          // Ingevuld via LHM/ADB paneel
+                energy_joules:            energyMetrics?.energy_joules ?? 0.0,
                 setup_energy_joules:      0.0,
-                gpu_joules:               0.0,
-                cpu_joules:               0.0,
-                dram_joules:              0.0,
-                network_joules:           0.0,          // PWA: geen PDF transfer naar server
-                gpu_avg_watts:            0.0,
+                gpu_joules:               energyMetrics?.gpu_joules ?? 0.0,
+                gpu_nvidia_joules:        energyMetrics?.gpu_nvidia_joules ?? 0.0,
+                gpu_amd_joules:           energyMetrics?.gpu_amd_joules ?? 0.0,
+                gpu_amd_core_joules:      energyMetrics?.gpu_amd_core_joules ?? 0.0,
+                gpu_amd_soc_joules:       energyMetrics?.gpu_amd_soc_joules ?? 0.0,
+                cpu_joules:               energyMetrics?.cpu_joules ?? 0.0,
+                dram_joules:              energyMetrics?.dram_joules ?? null,
+                network_joules:           energyMetrics?.network_joules ?? 0.0,
+                other_system_joules:      energyMetrics?.other_system_joules ?? 0.0,
+                network_bytes_estimate:   networkBytesEstimate,
+                gpu_avg_watts:            energyMetrics?.gpu_avg_watts ?? 0.0,
                 pue_factor:               1.0,          // Edge: geen datacenter overhead (Thesis)
-                carbon_intensity_gco2_kwh: 167.0,       // ENTSO-E België (Thesis)
+                carbon_intensity_gco2_kwh: 200.5,       // Meest recente CO₂-coëfficiënt (2024, Thesis)
+                energy_source:            energyMetrics?.energy_source ?? 'manual',
                 document_status:          documentStatus,
                 run_index:                runCount,
                 supplier:                 extracted?.supplier   || null,
@@ -747,7 +1035,7 @@
             window.__lastMeasurement = measurementData;
 
             setProgress(100);
-            setStatus(`Extractie klaar (inferentie: ${genTimeS.toFixed(2)}s). Voer energiewaarde in (of wacht op automatische invulling via LHM).`);
+            setStatus(`Extractie klaar (inferentie: ${genTimeS.toFixed(2)}s). Controleer de energiewaarde en sla de meting op.`);
 
             if (benchmarkMode === 'warmup') {
                 const syncEl = document.getElementById('syncStatus');
@@ -761,10 +1049,32 @@
 
             // Toon energie invoerpaneel — wacht op gebruikersinvoer vóór API-aanroep
             showEnergyPanel(measurementData);
+            document.getElementById('energyInput').value = (measurementData.energy_joules || 0).toFixed(3);
 
         } catch (err) {
-            setStatus(`Fout bij lokale uitvoering: ${err.message}`);
-            console.error(err);
+            // Fix 3: stop energy session als die gestart was maar een exception optrad
+            if (energySessionId) {
+                await stopEnergySession(energySessionId, 0, 0).catch(() => {});
+                energySessionId = null;
+            }
+            // Fix 7: robuustere device lost detectie (case-insensitive catch-all)
+            const msg = (err.message || '').toLowerCase();
+            const isDeviceLost = msg.includes('device') && msg.includes('lost') ||
+                msg.includes('devicelost') ||
+                msg.includes('gpu device was lost');
+            if (isDeviceLost) {
+                console.error('[PWA] WebGPU device lost — model en tokenizer resetten.');
+                try { activeModel?.dispose(); } catch (_) {}
+                activeModel = null;
+                activeTokenizer = null;
+                window.__gpuDeviceLost = true;
+                setStatus('WebGPU device lost. Klik opnieuw op "Start Edge Extractie" om het model opnieuw te laden.');
+            } else {
+                setStatus(`Fout bij lokale uitvoering: ${err.message}`);
+                console.error(err);
+            }
+            // Fix 2: token altijd vrijgeven bij device lost én andere errors
+            markBenchmarkCompletion(benchmarkMode === 'warmup' ? 'warmup' : 'steady');
         } finally {
             submitBtn.disabled = false;
             progressBar.style.display = 'none';

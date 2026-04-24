@@ -19,21 +19,20 @@ except ImportError:  # pragma: no cover - runtime dependency
 
 
 LHM_DEFAULT_URL = "http://localhost:8085/data.json"
-LHM_POLL_INTERVAL_S = 0.5
-LHM_BASELINE_DURATION_S = 30
 
 
 def log_event(message: str) -> None:
     timestamp = datetime.now().strftime("%H:%M:%S")
-    print(f"[{timestamp}] {message}", flush=True)
+    line = f"[{timestamp}] {message}"
+    print(line.encode(sys.stdout.encoding or "utf-8", errors="replace").decode(sys.stdout.encoding or "utf-8", errors="replace"), flush=True)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
             "Geautomatiseerde benchmarkrunner voor de PWA-laptopvariant (Windows/AMD). "
-            "Automatiseert browser, upload en opslagflow. Energiemeting via "
-            "LibreHardwareMonitor (lhm), handmatige invoer (prompt) of nul (zero)."
+            "Automatiseert browser, upload en opslagflow. De PWA-app zelf meet en bewaart "
+            "de energiemetrics; dit script automatiseert enkel de handmatige UI-flow."
         )
     )
     parser.add_argument(
@@ -50,14 +49,20 @@ def parse_args():
     )
     parser.add_argument(
         "--pdf-dir",
-        default=str(Path(__file__).resolve().parents[2] / "Dataset"),
+        default=str(Path(__file__).resolve().parents[2] / "Dataset" / "PDF"),
         help="Map met PDF's. Alle .pdf bestanden worden alfabetisch toegevoegd.",
+    )
+    parser.add_argument(
+        "--warmup-total",
+        type=int,
+        default=5,
+        help="Totaal aantal warm-up runs over de volledige PDF-pool.",
     )
     parser.add_argument(
         "--steady-repeats",
         type=int,
-        default=8,
-        help="Aantal actieve meetruns per PDF (standaard 8, geeft 32 runs voor 4 PDF's).",
+        default=5,
+        help="Aantal actieve meetruns per PDF.",
     )
     parser.add_argument(
         "--batch-id",
@@ -83,8 +88,8 @@ def parse_args():
         choices=["lhm", "prompt", "zero"],
         default="lhm",
         help=(
-            "lhm    = automatisch via LibreHardwareMonitor HTTP-server (aanbevolen, AMD/Intel). "
-            "prompt = handmatige invoer per run. "
+            "lhm    = gebruik de automatisch ingevulde energiewaarde uit de PWA-app. "
+            "prompt = overschrijf de energiewaarde handmatig per run. "
             "zero   = sla op met 0 J (timing-only)."
         ),
     )
@@ -97,7 +102,7 @@ def parse_args():
         "--lhm-baseline",
         action="store_true",
         default=True,
-        help=f"Meet {LHM_BASELINE_DURATION_S}s idle-baseline vóór de meetreeks en trek die af per run.",
+        help="Behoud CLI-compatibiliteit; baseline-correctie gebeurt niet meer in dit script.",
     )
     parser.add_argument(
         "--no-lhm-baseline",
@@ -195,17 +200,24 @@ def build_plan(pdfs: list[Path], steady_repeats: int, seed: int | None):
     return runs
 
 
-def build_warmup_plan(pdfs: list[Path]):
+def build_warmup_plan(pdfs: list[Path], warmup_total: int, seed: int | None):
+    if warmup_total <= 0:
+        return []
+    ordered_pdfs = list(pdfs)
+    if seed is not None:
+        random.Random(seed).shuffle(ordered_pdfs)
     runs = []
-    for pdf_index, pdf_path in enumerate(pdfs, start=1):
+    for idx in range(warmup_total):
+        pdf_path = ordered_pdfs[idx % len(ordered_pdfs)]
+        pdf_index = pdfs.index(pdf_path) + 1
         runs.append(
             {
                 "phase": "warmup",
-                "repeat_index_for_pdf": 1,
+                "repeat_index_for_pdf": (idx // len(ordered_pdfs)) + 1,
                 "pdf_order": pdf_index,
                 "pdf": pdf_path,
-                "phase_index": pdf_index,
-                "phase_total": len(pdfs),
+                "phase_index": idx + 1,
+                "phase_total": warmup_total,
             }
         )
     return runs
@@ -235,7 +247,7 @@ def extract_sync_result(sync_text: str):
 def measurement_ok(measurement: dict | None) -> bool:
     if not measurement:
         return False
-    required = ["supplier", "start_date", "end_date", "kwh_quantity", "co2eq_quantity"]
+    required = ["supplier", "start_date", "end_date", "kwh_quantity"]
     for field in required:
         value = measurement.get(field)
         if value is None:
@@ -245,18 +257,43 @@ def measurement_ok(measurement: dict | None) -> bool:
     return True
 
 
+def build_pwa_measurement_payload(
+    measurement_snapshot: dict | None,
+    energy_j: float,
+    gross_energy_j: float,
+    baseline_energy_j: float,
+) -> dict | None:
+    if not measurement_snapshot:
+        return None
+    payload = dict(measurement_snapshot)
+    payload["energy_joules"] = energy_j
+    payload["energy_joules_net"] = energy_j
+    payload["energy_joules_gross"] = gross_energy_j
+    payload["energy_joules_baseline_correction"] = baseline_energy_j
+    return payload
+
+
 def attach_page_logging(page) -> None:
     def on_console(msg):
-        text = msg.text.strip()
-        if text:
-            log_event(f"[browser:{msg.type}] {text}")
+        try:
+            text = msg.text.strip()
+            if text:
+                log_event(f"[browser:{msg.type}] {text}")
+        except Exception:
+            pass
 
     def on_page_error(exc):
-        log_event(f"[browser:error] {exc}")
+        try:
+            log_event(f"[browser:error] {exc}")
+        except Exception:
+            pass
 
     def on_request_failed(req):
-        failure = req.failure or ""
-        log_event(f"[browser:requestfailed] {req.method} {req.url} | {failure}")
+        try:
+            failure = req.failure or ""
+            log_event(f"[browser:requestfailed] {req.method} {req.url} | {failure}")
+        except Exception:
+            pass
 
     page.on("console", on_console)
     page.on("pageerror", on_page_error)
@@ -318,137 +355,6 @@ def run_pwa_warmup(page, pdf_path: Path, warmup_number: int, warmup_total: int, 
 
 
 # ---------------------------------------------------------------------------
-# LibreHardwareMonitor energy meter
-# ---------------------------------------------------------------------------
-
-def _fetch_lhm_cpu_power_w(lhm_url: str) -> float | None:
-    """Haal het totale CPU Package Power (W) op uit de LHM JSON-boom.
-
-    LibreHardwareMonitor levert een geneste boom van hardware-nodes. We zoeken
-    naar het eerste sensortype 'Power' met naam die 'CPU Package' bevat.
-    Geeft None terug als de sensor niet gevonden wordt.
-    """
-    try:
-        req = urllib_request.Request(lhm_url, headers={"Accept": "application/json"})
-        with urllib_request.urlopen(req, timeout=2) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        return None
-
-    def _search(node) -> float | None:
-        # LHM JSON heeft Children-lijsten op elk niveau
-        # Sommige LHM-versies leveren lege SensorType; match op naam + waarde eindigt op " W"
-        name = node.get("Text", "")
-        val_str = node.get("Value", "")
-        # Match "CPU Package", "Package" (AMD), of parent "Powers" met kind "Package"
-        is_cpu_power = (
-            ("CPU Package" in name or name == "Package")
-            and "GPU" not in name
-            and val_str.endswith(" W")
-        )
-        if is_cpu_power:
-            try:
-                return float(val_str.replace(",", ".").split()[0])
-            except (ValueError, AttributeError):
-                return None
-        for child in node.get("Children", []):
-            result = _search(child)
-            if result is not None:
-                return result
-        return None
-
-    return _search(data)
-
-
-class LhmPowerSampler:
-    """Achtergrondthread die LHM elke LHM_POLL_INTERVAL_S peilt.
-
-    Gebruik:
-        sampler = LhmPowerSampler(lhm_url)
-        sampler.start()
-        # ... inferentie ...
-        joules = sampler.stop()   # integreert watts×tijd → joules
-    """
-
-    def __init__(self, lhm_url: str):
-        self._url = lhm_url
-        self._samples: list[tuple[float, float]] = []  # (timestamp, watts)
-        self._running = False
-        self._thread: threading.Thread | None = None
-
-    def start(self):
-        self._samples = []
-        self._running = True
-        self._thread = threading.Thread(target=self._loop, daemon=True)
-        self._thread.start()
-
-    def _loop(self):
-        while self._running:
-            t = time.monotonic()
-            w = _fetch_lhm_cpu_power_w(self._url)
-            if w is not None:
-                self._samples.append((t, w))
-            time.sleep(LHM_POLL_INTERVAL_S)
-
-    def stop(self) -> float:
-        """Stop meting en geef energie in joules terug via trapeziumregel."""
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=3)
-        if len(self._samples) < 2:
-            # Onvoldoende datapunten: gebruik gemiddelde × geschatte tijd
-            if self._samples:
-                return self._samples[0][1] * LHM_POLL_INTERVAL_S
-            return 0.0
-        energy = 0.0
-        for i in range(1, len(self._samples)):
-            dt = self._samples[i][0] - self._samples[i - 1][0]
-            avg_w = (self._samples[i][1] + self._samples[i - 1][1]) / 2.0
-            energy += avg_w * dt
-        return energy
-
-    def mean_power_w(self) -> float:
-        if not self._samples:
-            return 0.0
-        return sum(w for _, w in self._samples) / len(self._samples)
-
-
-def measure_lhm_baseline(lhm_url: str, duration_s: int = LHM_BASELINE_DURATION_S) -> float:
-    """Meet het gemiddelde idle CPU Package Power over duration_s seconden.
-
-    Conform meetprotocol sectie 3.2: baseline-metingen tijdens idle worden
-    afgetrokken van actieve verbruiksdata.
-    """
-    print(
-        f"Idle-baselinemeting starten ({duration_s}s) — zorg dat de browser gesloten is "
-        f"en er geen andere zware processen draaien...",
-        flush=True,
-    )
-    sampler = LhmPowerSampler(lhm_url)
-    sampler.start()
-    time.sleep(duration_s)
-    sampler.stop()
-    baseline_w = sampler.mean_power_w()
-    print(f"Idle-baseline gemeten: {baseline_w:.2f} W", flush=True)
-    return baseline_w
-
-
-def verify_lhm(lhm_url: str) -> None:
-    """Controleer of LHM bereikbaar is en CPU Package Power blootstelt."""
-    w = _fetch_lhm_cpu_power_w(lhm_url)
-    if w is None:
-        raise SystemExit(
-            f"LibreHardwareMonitor niet bereikbaar op {lhm_url} of "
-            "'CPU Package' Power-sensor niet gevonden.\n"
-            "Controleer dat LibreHardwareMonitor draait met de ingebouwde webserver "
-            "(Options → Remote Web Server → Run) op poort 8085, "
-            "en dat 'CPU Package' zichtbaar is in de sensorlijst.\n"
-            "Gebruik --energy-mode zero of --energy-mode prompt als alternatief."
-        )
-    print(f"LibreHardwareMonitor bereikbaar. Huidig CPU Package Power: {w:.1f} W", flush=True)
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -461,14 +367,8 @@ def main():
 
     args = parse_args()
 
-    baseline_w = 0.0
-    if args.energy_mode == "lhm":
-        verify_lhm(args.lhm_url)
-        if args.lhm_baseline:
-            baseline_w = measure_lhm_baseline(args.lhm_url)
-
     pdfs = collect_pdfs(args)
-    warmup_plan = build_warmup_plan(pdfs)
+    warmup_plan = build_warmup_plan(pdfs, args.warmup_total, args.shuffle_seed)
     plan = build_plan(pdfs, args.steady_repeats, args.shuffle_seed)
 
     output_path = Path(args.output).expanduser().resolve()
@@ -482,6 +382,7 @@ def main():
         "pdfs": [str(pdf) for pdf in pdfs],
         "plan": {
             "pdf_count": len(pdfs),
+            "warmup_total": args.warmup_total,
             "warmup_runs_total": len(warmup_plan),
             "steady_repeats_per_pdf": args.steady_repeats,
             "steady_runs_total": len(plan),
@@ -490,10 +391,10 @@ def main():
             "browser": args.browser,
         },
         "energy_measurement": {
-            "tool": "LibreHardwareMonitor" if args.energy_mode == "lhm" else args.energy_mode,
-            "sensor": "CPU Package Power (W)" if args.energy_mode == "lhm" else "n/a",
-            "poll_interval_s": LHM_POLL_INTERVAL_S if args.energy_mode == "lhm" else None,
-            "baseline_w": baseline_w,
+            "tool": "PWA-app",
+            "sensor": "app-managed energy flow",
+            "poll_interval_s": None,
+            "baseline_w": None,
             "lhm_url": args.lhm_url if args.energy_mode == "lhm" else None,
         },
         "results": [],
@@ -520,7 +421,7 @@ def main():
         except Exception:
             pass
 
-        log_event(f"Protocol warm-up starten ({len(warmup_plan)} runs, elke PDF één keer)...")
+        log_event(f"Protocol warm-up starten ({len(warmup_plan)} runs totaal)...")
         for idx, warmup_run in enumerate(warmup_plan, start=1):
             pdf_path = warmup_run["pdf"]
             log_event(f"Warm-up {idx}/{len(warmup_plan)} -> {pdf_path.name}")
@@ -548,9 +449,24 @@ def main():
                 "sync_status_before": None,
                 "sync_status_after": "Warm-up run voltooid (niet opgeslagen in DB)",
                 "json_output": json.dumps(warmup_result["measurement"], indent=2) if warmup_result["measurement"] else None,
+                "measurement_payload": warmup_result["measurement"],
+                "hardware_context": (warmup_result["measurement"] or {}).get("hardware_context") if warmup_result["measurement"] else None,
+                "model_size": (warmup_result["measurement"] or {}).get("model_size") if warmup_result["measurement"] else None,
                 "document_status": (warmup_result["measurement"] or {}).get("document_status") if warmup_result["measurement"] else None,
                 "response_time": (warmup_result["measurement"] or {}).get("response_time") if warmup_result["measurement"] else None,
                 "setup_time_s": (warmup_result["measurement"] or {}).get("setup_time_s") if warmup_result["measurement"] else None,
+                "setup_energy_joules": (warmup_result["measurement"] or {}).get("setup_energy_joules") if warmup_result["measurement"] else None,
+                "gpu_joules": (warmup_result["measurement"] or {}).get("gpu_joules") if warmup_result["measurement"] else None,
+                "gpu_nvidia_joules": (warmup_result["measurement"] or {}).get("gpu_nvidia_joules") if warmup_result["measurement"] else None,
+                "gpu_amd_joules": (warmup_result["measurement"] or {}).get("gpu_amd_joules") if warmup_result["measurement"] else None,
+                "gpu_amd_core_joules": (warmup_result["measurement"] or {}).get("gpu_amd_core_joules") if warmup_result["measurement"] else None,
+                "gpu_amd_soc_joules": (warmup_result["measurement"] or {}).get("gpu_amd_soc_joules") if warmup_result["measurement"] else None,
+                "cpu_joules": (warmup_result["measurement"] or {}).get("cpu_joules") if warmup_result["measurement"] else None,
+                "dram_joules": (warmup_result["measurement"] or {}).get("dram_joules") if warmup_result["measurement"] else None,
+                "network_joules": (warmup_result["measurement"] or {}).get("network_joules") if warmup_result["measurement"] else None,
+                "gpu_avg_watts": (warmup_result["measurement"] or {}).get("gpu_avg_watts") if warmup_result["measurement"] else None,
+                "pue_factor": (warmup_result["measurement"] or {}).get("pue_factor") if warmup_result["measurement"] else None,
+                "carbon_intensity_gco2_kwh": (warmup_result["measurement"] or {}).get("carbon_intensity_gco2_kwh") if warmup_result["measurement"] else None,
                 "supplier": (warmup_result["measurement"] or {}).get("supplier") if warmup_result["measurement"] else None,
                 "start_date": (warmup_result["measurement"] or {}).get("start_date") if warmup_result["measurement"] else None,
                 "end_date": (warmup_result["measurement"] or {}).get("end_date") if warmup_result["measurement"] else None,
@@ -570,42 +486,63 @@ def main():
                 f"pdf {run['pdf_order']}/{len(pdfs)}) -> {pdf_path.name}"
             )
 
-            page.set_input_files("#pdfFile", str(pdf_path))
+            # Herstel na WebGPU device lost: vlag resetten (HTML auto-retry herlaadt model zelf)
+            if page.evaluate("() => !!window.__gpuDeviceLost"):
+                log_event(f"WebGPU device lost vlag aanwezig vóór run {run_number} — vlag resetten (model herlaadt automatisch bij volgende run).")
+                page.evaluate("() => { window.__gpuDeviceLost = false; }")
 
-            if args.energy_mode == "lhm":
-                sampler = LhmPowerSampler(args.lhm_url)
-                sampler.start()
-                started = time.time()
-                page.locator("#submitBtn").click()
-                wait_with_status_logging(page, page.locator("#energyPanel"), f"Run {run_number} inferentie")
-                wall_time_s = time.time() - started
-                gross_energy_j = sampler.stop()
-                # Baseline-aftrek: baseline_w × werkelijke duur
-                baseline_energy_j = baseline_w * wall_time_s
-                energy_j = max(0.0, gross_energy_j - baseline_energy_j)
-                samples_count = len(sampler._samples)
-                mean_power_w = sampler.mean_power_w()
-            else:
-                started = time.time()
-                page.locator("#submitBtn").click()
-                wait_with_status_logging(page, page.locator("#energyPanel"), f"Run {run_number} inferentie")
-                wall_time_s = time.time() - started
-                energy_j = 0.0 if args.energy_mode == "zero" else prompt_energy(run_number, pdf_path.name)
-                gross_energy_j = energy_j
-                baseline_energy_j = 0.0
-                samples_count = 0
-                mean_power_w = 0.0
+            page.set_input_files("#pdfFile", str(pdf_path))
+            steady_token = f"steady-{run_number}-{uuid.uuid4().hex[:8]}"
+            page.evaluate("(meta) => window.__setBenchmarkMode('steady', meta)", {"token": steady_token})
+
+            started = time.time()
+            page.locator("#submitBtn").click()
+            energy_panel = page.locator("#energyPanel")
+            energy_panel_appeared = False
+            try:
+                # Fix 6: kortere timeout (180s) — inferentie duurt nooit langer dan 3 minuten
+                energy_panel.wait_for(state="visible", timeout=180_000)
+                energy_panel_appeared = True
+            except PlaywrightTimeoutError:
+                log_event(f"Run {run_number}: energie-paneel verscheen niet binnen 180s — run mislukt of gecrasht.")
+            wall_time_s = time.time() - started
+            baseline_energy_j = 0.0
+            samples_count = 0
+            mean_power_w = 0.0
 
             pending_info = page.locator("#pendingInfo").inner_text()
             json_output = page.locator("#jsonOutput").inner_text()
             sync_text_before = page.locator("#syncStatus").inner_text()
 
-            page.locator("#energyInput").fill(str(energy_j))
-            page.locator("#saveBtn").click()
-            page.locator("#energyPanel").wait_for(state="hidden")
+            # Energie invoeren en opslaan — alleen als paneel verscheen (valid run)
+            # Daarna wachten op token zodat JS de DB-call volledig afgerond heeft
+            if energy_panel_appeared:
+                if args.energy_mode == "zero":
+                    page.locator("#energyInput").fill("0")
+                elif args.energy_mode == "prompt":
+                    energy_j = prompt_energy(run_number, pdf_path.name)
+                    page.locator("#energyInput").fill(str(energy_j))
+                page.locator("#saveBtn").click()
+                energy_panel.wait_for(state="hidden")
+            # Fix 1: token altijd afwachten, maar korter als paneel niet verscheen (fout/crash)
+            token_timeout = args.timeout_ms if energy_panel_appeared else 30_000
+            page.wait_for_function(
+                "(expectedToken) => window.__lastCompletedToken === expectedToken",
+                arg=steady_token,
+                timeout=token_timeout,
+            )
 
             sync_text = page.locator("#syncStatus").inner_text()
+            measurement_snapshot = page.evaluate("() => window.__lastMeasurement")
+            energy_j = (measurement_snapshot or {}).get("energy_joules", 0.0) if measurement_snapshot else 0.0
+            gross_energy_j = energy_j
             ok, db_id = extract_sync_result(sync_text)
+            measurement_payload = build_pwa_measurement_payload(
+                measurement_snapshot,
+                energy_j,
+                gross_energy_j,
+                baseline_energy_j,
+            )
             log_event(
                 f"Run {run_number} opgeslagen | ok={ok} | db_id={db_id} | "
                 f"wall_time={wall_time_s:.2f}s | energy={energy_j:.2f}J"
@@ -626,7 +563,7 @@ def main():
                 "energy_joules_net": energy_j,
                 "energy_joules_gross": gross_energy_j,
                 "energy_joules_baseline_correction": baseline_energy_j,
-                "energy_source": "LibreHardwareMonitor" if args.energy_mode == "lhm" else args.energy_mode,
+                "energy_source": (measurement_snapshot or {}).get("energy_source") if measurement_snapshot else args.energy_mode,
                 "lhm_samples_count": samples_count,
                 "lhm_mean_power_w": mean_power_w,
                 "db_id": db_id,
@@ -634,6 +571,31 @@ def main():
                 "sync_status_before": sync_text_before,
                 "sync_status_after": sync_text,
                 "json_output": json_output,
+                "measurement_payload": measurement_payload,
+                "hardware_context": (measurement_snapshot or {}).get("hardware_context") if measurement_snapshot else None,
+                "model_size": (measurement_snapshot or {}).get("model_size") if measurement_snapshot else None,
+                "document_status": (measurement_snapshot or {}).get("document_status") if measurement_snapshot else None,
+                "response_time": (measurement_snapshot or {}).get("response_time") if measurement_snapshot else None,
+                "setup_time_s": (measurement_snapshot or {}).get("setup_time_s") if measurement_snapshot else None,
+                "setup_energy_joules": (measurement_snapshot or {}).get("setup_energy_joules") if measurement_snapshot else None,
+                "gpu_joules": (measurement_snapshot or {}).get("gpu_joules") if measurement_snapshot else None,
+                "gpu_nvidia_joules": (measurement_snapshot or {}).get("gpu_nvidia_joules") if measurement_snapshot else None,
+                "gpu_amd_joules": (measurement_snapshot or {}).get("gpu_amd_joules") if measurement_snapshot else None,
+                "gpu_amd_core_joules": (measurement_snapshot or {}).get("gpu_amd_core_joules") if measurement_snapshot else None,
+                "gpu_amd_soc_joules": (measurement_snapshot or {}).get("gpu_amd_soc_joules") if measurement_snapshot else None,
+                "cpu_joules": (measurement_snapshot or {}).get("cpu_joules") if measurement_snapshot else None,
+                "dram_joules": (measurement_snapshot or {}).get("dram_joules") if measurement_snapshot else None,
+                "network_joules": (measurement_snapshot or {}).get("network_joules") if measurement_snapshot else None,
+                "other_system_joules": (measurement_snapshot or {}).get("other_system_joules") if measurement_snapshot else None,
+                "network_bytes_estimate": (measurement_snapshot or {}).get("network_bytes_estimate") if measurement_snapshot else None,
+                "gpu_avg_watts": (measurement_snapshot or {}).get("gpu_avg_watts") if measurement_snapshot else None,
+                "pue_factor": (measurement_snapshot or {}).get("pue_factor") if measurement_snapshot else None,
+                "carbon_intensity_gco2_kwh": (measurement_snapshot or {}).get("carbon_intensity_gco2_kwh") if measurement_snapshot else None,
+                "supplier": (measurement_snapshot or {}).get("supplier") if measurement_snapshot else None,
+                "start_date": (measurement_snapshot or {}).get("start_date") if measurement_snapshot else None,
+                "end_date": (measurement_snapshot or {}).get("end_date") if measurement_snapshot else None,
+                "kwh_quantity": (measurement_snapshot or {}).get("kwh_quantity") if measurement_snapshot else None,
+                "co2eq_quantity": (measurement_snapshot or {}).get("co2eq_quantity") if measurement_snapshot else None,
             }
             summary["results"].append(result)
             output_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")

@@ -44,3 +44,6 @@ build/
 # OS
 .DS_Store
 Thumbs.db
+graphs/*
+scripts/results/*
+*json

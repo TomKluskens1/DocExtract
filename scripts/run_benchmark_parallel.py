@@ -1,5 +1,5 @@
 import argparse
-import shutil
+import os
 import json
 import subprocess
 import sys
@@ -29,8 +29,26 @@ def parse_args():
     )
     parser.add_argument(
         "--pdf-dir",
-        default=str(Path(__file__).resolve().parents[2] / "Dataset"),
+        default=str(Path(__file__).resolve().parents[2] / "Dataset" / "PDF"),
         help="Map met PDF-bestanden.",
+    )
+    parser.add_argument(
+        "--warmup-total",
+        type=int,
+        default=5,
+        help="Totaal aantal warm-up runs per architectuur.",
+    )
+    parser.add_argument(
+        "--steady-repeats",
+        type=int,
+        default=5,
+        help="Aantal steady-state runs per PDF.",
+    )
+    parser.add_argument(
+        "--cloud-cold-total",
+        type=int,
+        default=30,
+        help="Totaal aantal cold-start runs voor Cloud Run.",
     )
     parser.add_argument(
         "--dashboard-export-url",
@@ -51,7 +69,7 @@ def parse_args():
     parser.add_argument(
         "--cloud-cold-wait",
         type=int,
-        default=600,
+        default=900,
         help="Aantal seconden tussen cold-start candidate runs voor cloud.",
     )
     parser.add_argument(
@@ -88,9 +106,20 @@ def parse_args():
     )
     parser.add_argument(
         "--pwa-energy-mode",
-        choices=["lhm", "zero"],
+        choices=["lhm", "prompt", "zero"],
         default="lhm",
         help="Energiemeetmodus voor de PWA-benchmark (standaard: lhm).",
+    )
+    parser.add_argument(
+        "--pwa-no-headless",
+        action="store_true",
+        help="Start de PWA-benchmark zichtbaar zodat WebGPU in Chromium beschikbaar blijft.",
+    )
+    parser.add_argument(
+        "--only",
+        choices=["all", "cloud", "server", "pwa"],
+        default="all",
+        help="Voer enkel een specifieke architectuur uit, of alles (standaard: all).",
     )
     return parser.parse_args()
 
@@ -112,10 +141,14 @@ def launch_runner(command: list[str], log_path: Path):
 
 def main():
     args = parse_args()
+    run_cloud = args.only in {"all", "cloud"}
+    run_onprem = args.only in {"all", "server"}
+    run_pwa = args.only in {"all", "pwa"} and not args.skip_pwa
+
     script_dir = Path(__file__).resolve().parent
     shared_runner = script_dir / "run_benchmark.py"
     pwa_runner = script_dir / "run_benchmark_pwa_laptop.py"
-    graphs_script = script_dir.parents[1] / "latex-hogent-bachproef-main" / "grafieken" / "graphs_results.py"
+    graphs_script = script_dir.parent / "graphs" / "graphs_results.py"
 
     output_dir = Path(args.output_dir).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -182,12 +215,12 @@ def main():
         args.cloud_base_url,
         "--architecture",
         "Cloud Run",
-        "--warmup-repeats",
-        "1",
+        "--warmup-total",
+        str(args.warmup_total),
         "--steady-repeats",
-        "8",
-        "--cold-repeats",
-        "4",
+        str(args.steady_repeats),
+        "--cold-total",
+        str(args.cloud_cold_total),
         "--cold-wait",
         str(args.cloud_cold_wait),
         "--batch-id",
@@ -206,11 +239,11 @@ def main():
         args.onprem_base_url,
         "--architecture",
         "HOGENT",
-        "--warmup-repeats",
-        "1",
+        "--warmup-total",
+        str(args.warmup_total),
         "--steady-repeats",
-        "8",
-        "--cold-repeats",
+        str(args.steady_repeats),
+        "--cold-total",
         "0",
         "--batch-id",
         onprem_batch_id,
@@ -228,8 +261,10 @@ def main():
         args.pwa_base_url,
         "--pdf-dir",
         str(Path(args.pdf_dir).expanduser().resolve()),
+        "--warmup-total",
+        str(args.warmup_total),
         "--steady-repeats",
-        "8",
+        str(args.steady_repeats),
         "--batch-id",
         pwa_batch_id,
         "--output",
@@ -243,6 +278,8 @@ def main():
         pwa_cmd.extend(["--shuffle-seed", str(args.shuffle_seed)])
     if args.dashboard_export_url:
         pwa_cmd.extend(["--dashboard-export-url", args.dashboard_export_url])
+    if args.pwa_no_headless:
+        pwa_cmd.append("--no-headless")
 
     summary = {
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -261,19 +298,21 @@ def main():
             "log": str(cloud_log),
             "results": str(cloud_output),
             "dashboard_export": str(cloud_dashboard_output),
+            "skipped": not run_cloud,
         },
         "onprem": {
             "command": onprem_cmd,
             "log": str(onprem_log),
             "results": str(onprem_output),
             "dashboard_export": str(onprem_dashboard_output),
+            "skipped": not run_onprem,
         },
         "pwa": {
             "command": pwa_cmd,
             "log": str(pwa_log),
             "results": str(pwa_output),
             "dashboard_export": str(pwa_dashboard_output),
-            "skipped": args.skip_pwa,
+            "skipped": not run_pwa,
         },
     }
     summary_path = output_dir / "benchmark_parallel_summary.json"
@@ -282,17 +321,23 @@ def main():
     print(f"Cloud batch_id:  {cloud_batch_id}", flush=True)
     print(f"Server batch_id: {onprem_batch_id}", flush=True)
     print(f"PWA batch_id:    {pwa_batch_id}", flush=True)
-    print(f"Logs: {cloud_log} | {onprem_log}", flush=True)
-    if not args.skip_pwa:
+    if run_cloud or run_onprem:
+        log_parts = []
+        if run_cloud:
+            log_parts.append(str(cloud_log))
+        if run_onprem:
+            log_parts.append(str(onprem_log))
+        print(f"Logs: {' | '.join(log_parts)}", flush=True)
+    if run_pwa:
         print(f"PWA log: {pwa_log} (start na cloud+onprem)", flush=True)
 
-    cloud_proc, cloud_log_handle = launch_runner(cloud_cmd, cloud_log)
-    onprem_proc, onprem_log_handle = launch_runner(onprem_cmd, onprem_log)
-
-    processes = [
-        ("cloud", cloud_proc, cloud_log_handle),
-        ("onprem", onprem_proc, onprem_log_handle),
-    ]
+    processes = []
+    if run_cloud:
+        cloud_proc, cloud_log_handle = launch_runner(cloud_cmd, cloud_log)
+        processes.append(("cloud", cloud_proc, cloud_log_handle))
+    if run_onprem:
+        onprem_proc, onprem_log_handle = launch_runner(onprem_cmd, onprem_log)
+        processes.append(("onprem", onprem_proc, onprem_log_handle))
 
     try:
         while processes:
@@ -333,14 +378,19 @@ def main():
                 pass
 
     # PWA benchmark — sequentieel na cloud+onprem, want vereist LHM op dezelfde machine
-    if not args.skip_pwa:
-        print("\nCloud en on-premises klaar. PWA-benchmark starten...", flush=True)
+    if run_pwa:
+        if run_cloud or run_onprem:
+            print("\nCloud en on-premises klaar. PWA-benchmark starten...", flush=True)
+        else:
+            print("\nPWA-benchmark starten...", flush=True)
         pwa_log_file = pwa_log.open("w", encoding="utf-8")
+        pwa_env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
         pwa_proc = subprocess.run(
             pwa_cmd,
             stdout=pwa_log_file,
             stderr=subprocess.STDOUT,
             text=True,
+            env=pwa_env,
         )
         pwa_log_file.flush()
         pwa_log_file.close()
@@ -361,65 +411,19 @@ def main():
             str(onprem_output),
             "--pwa",
             str(pwa_output),
+            "--ground-truth",
+            str(script_dir / "results" / "ground_truth_expected_fields.json"),
             "--output-dir",
-            str(output_dir / "_graphs_tmp"),
+            str(output_dir),
         ]
         print("Grafieken genereren...", flush=True)
         graphs_completed = subprocess.run(graphs_cmd)
         summary["graphs"] = {
             "command": graphs_cmd,
             "exit_code": graphs_completed.returncode,
-            "output_dir": str(output_dir / "_graphs_tmp"),
+            "output_dir": str(output_dir),
+            "mode": args.only,
         }
-        if graphs_completed.returncode == 0:
-            tmp_graphs_dir = output_dir / "_graphs_tmp"
-            root_files = []
-            for filename in (
-                "results_0_scatter_all.png",
-                "results_0_scatter_all.pdf",
-                "results_all.json",
-                "results_summary.json",
-            ):
-                source = tmp_graphs_dir / filename
-                if source.exists():
-                    destination = output_dir / filename
-                    shutil.copy2(source, destination)
-                    root_files.append(str(destination))
-            copy_targets = {
-                "cloud": graphs_cloud_dir,
-                "server": graphs_server_dir,
-                "pwa": graphs_pwa_dir,
-            }
-            architecture_scatter_prefixes = {
-                "cloud": "results_1_scatter_cloud_run",
-                "server": "results_1_scatter_hogent",
-                "pwa": "results_1_scatter_pwa",
-            }
-            shared_prefixes = [
-                "results_2_energy_boxplot",
-                "results_3_response_time_boxplot",
-                "results_4_phase_energy_bars",
-                "results_5_energy_components_stacked",
-                "results_6_per_pdf_comparison",
-                "results_summary",
-            ]
-            for key, target_dir in copy_targets.items():
-                prefixes = [architecture_scatter_prefixes[key], *shared_prefixes]
-                copied_files = []
-                for item in tmp_graphs_dir.iterdir():
-                    if not item.is_file():
-                        continue
-                    if any(item.name.startswith(prefix) for prefix in prefixes):
-                        destination = target_dir / item.name
-                        shutil.copy2(item, destination)
-                        copied_files.append(str(destination))
-                summary["graphs"][key] = {
-                    "output_dir": str(target_dir),
-                    "files": copied_files,
-                }
-            summary["graphs"]["root_files"] = root_files
-            shutil.rmtree(tmp_graphs_dir, ignore_errors=True)
-            summary["graphs"]["output_dir"] = None
         summary_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
         if graphs_completed.returncode != 0 and args.fail_fast:
             raise SystemExit(graphs_completed.returncode)

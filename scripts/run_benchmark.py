@@ -33,26 +33,26 @@ def parse_args():
     )
     parser.add_argument(
         "--pdf-dir",
-        default=str(Path(__file__).resolve().parents[2] / "Dataset"),
+        default=str(Path(__file__).resolve().parents[2] / "Dataset" / "PDF"),
         help="Map met PDF's. Alle .pdf bestanden worden alfabetisch toegevoegd.",
     )
     parser.add_argument(
-        "--warmup-repeats",
+        "--warmup-total",
         type=int,
-        default=1,
-        help="Aantal warm-up runs per PDF.",
+        default=5,
+        help="Totaal aantal warm-up runs over de volledige PDF-pool.",
     )
     parser.add_argument(
         "--steady-repeats",
         type=int,
-        default=8,
+        default=5,
         help="Aantal steady-state runs per PDF.",
     )
     parser.add_argument(
-        "--cold-repeats",
+        "--cold-total",
         type=int,
-        default=4,
-        help="Aantal cold-start candidate runs per PDF.",
+        default=30,
+        help="Totaal aantal cold-start candidate runs over de volledige PDF-pool.",
     )
     parser.add_argument(
         "--steady-wait",
@@ -63,7 +63,7 @@ def parse_args():
     parser.add_argument(
         "--cold-wait",
         type=int,
-        default=600,
+        default=900,
         help="Aantal seconden wachten tussen cold-start candidate runs.",
     )
     parser.add_argument(
@@ -232,6 +232,23 @@ def build_phase_plan(phase: str, pdfs: list[Path], repeats: int, rng: random.Ran
     return runs
 
 
+def build_total_runs_plan(phase: str, pdfs: list[Path], total_runs: int, rng: random.Random | None):
+    if total_runs <= 0:
+        return []
+
+    ordered_pdfs = list(pdfs)
+    if rng is not None:
+        rng.shuffle(ordered_pdfs)
+
+    runs = []
+    for idx in range(total_runs):
+        pdf_path = ordered_pdfs[idx % len(ordered_pdfs)]
+        pdf_order = pdfs.index(pdf_path) + 1
+        repeat_index = (idx // len(ordered_pdfs)) + 1
+        runs.append((phase, idx + 1, total_runs, repeat_index, pdf_order, pdf_path))
+    return runs
+
+
 def main():
     args = parse_args()
     pdfs = collect_pdfs(args)
@@ -248,12 +265,10 @@ def main():
         "pdfs": [str(pdf) for pdf in pdfs],
         "plan": {
             "pdf_count": len(pdfs),
-            "warmup_repeats_per_pdf": args.warmup_repeats,
+            "warmup_runs_total": args.warmup_total,
             "steady_repeats_per_pdf": args.steady_repeats,
-            "cold_repeats_per_pdf": args.cold_repeats,
-            "warmup_runs_total": len(pdfs) * args.warmup_repeats,
+            "cold_runs_total": args.cold_total,
             "steady_runs_total": len(pdfs) * args.steady_repeats,
-            "cold_runs_total": len(pdfs) * args.cold_repeats,
             "steady_wait_s": args.steady_wait,
             "cold_wait_s": args.cold_wait,
         },
@@ -261,9 +276,9 @@ def main():
     }
 
     rng = random.Random(args.shuffle_seed) if args.shuffle else None
-    warmup_plan = build_phase_plan("warmup", pdfs, args.warmup_repeats, rng)
+    warmup_plan = build_total_runs_plan("warmup", pdfs, args.warmup_total, rng)
     measurement_plan = build_phase_plan("steady", pdfs, args.steady_repeats, rng)
-    measurement_plan.extend(build_phase_plan("cold_candidate", pdfs, args.cold_repeats, rng))
+    measurement_plan.extend(build_total_runs_plan("cold_candidate", pdfs, args.cold_total, rng))
 
     for idx, (_, phase_index, phase_total, repeat_index, pdf_order, pdf_path) in enumerate(warmup_plan, start=1):
         print(

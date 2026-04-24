@@ -23,7 +23,7 @@ sys.path.append(current_dir)
 
 from extraction_framework.extractors.image_extractor import ImageExtractor
 from extraction_framework.llm_providers import get_provider
-from modello import BachelorProefModel
+from modello import BachelorProefModel, compute_co2eq
 
 # Optionele import afhankelijk van omgeving
 try:
@@ -36,7 +36,7 @@ try:
 except ImportError:
     fitz = None
 
-REQUIRED_FIELDS = ['supplier', 'start_date', 'end_date', 'kwh_quantity', 'co2eq_quantity']
+REQUIRED_FIELDS = ['supplier', 'start_date', 'end_date', 'kwh_quantity']
 RETRY_SYSTEM_PROMPT = """Extract exactly one invoiced billing period from this utility invoice.
 Return JSON only.
 
@@ -45,7 +45,6 @@ Rules:
 - Use only the invoiced period, never yearly or historical summaries.
 - start_date and end_date must be YYYY-MM-DD.
 - kwh_quantity must belong to the same invoiced period.
-- If co2eq_quantity is not found, use 0.0.
 - If supplier, start_date, end_date or kwh_quantity are missing, set them to null.
 """
 
@@ -89,6 +88,7 @@ class Measurement(db.Model):
     cpu_joules = db.Column(db.Float, default=0.0)
     dram_joules = db.Column(db.Float, default=0.0)
     network_joules = db.Column(db.Float, default=0.0)
+    other_joules = db.Column(db.Float, default=0.0)
     gpu_avg_watts = db.Column(db.Float, default=0.0)
     pue_factor = db.Column(db.Float, default=1.1)
     carbon_intensity_gco2_kwh = db.Column(db.Float, default=0.0)
@@ -105,11 +105,15 @@ class Measurement(db.Model):
 
 with app.app_context():
     db.create_all()
-    try:
-        db.session.execute(text("ALTER TABLE measurement ADD COLUMN batch_id VARCHAR(64)"))
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
+    for ddl in (
+        "ALTER TABLE measurement ADD COLUMN batch_id VARCHAR(64)",
+        "ALTER TABLE measurement ADD COLUMN other_joules FLOAT DEFAULT 0.0",
+    ):
+        try:
+            db.session.execute(text(ddl))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
 
 def has_required_fields(extracted_dict: dict) -> bool:
@@ -171,6 +175,7 @@ def get_measurements():
         "energy_joules": m.energy_joules, "setup_energy_joules": m.setup_energy_joules,
         "gpu_joules": m.gpu_joules, "cpu_joules": m.cpu_joules,
         "dram_joules": m.dram_joules, "network_joules": m.network_joules,
+        "other_joules": m.other_joules,
         "gpu_avg_watts": m.gpu_avg_watts, "pue_factor": m.pue_factor,
         "carbon_intensity_gco2_kwh": m.carbon_intensity_gco2_kwh,
         "document_status": m.document_status, 
@@ -186,7 +191,7 @@ def api_upload():
     data = request.json
     
     # Validation constraint from thesis: run is disqualified if fields are missing
-    required_fields = ['supplier', 'start_date', 'end_date', 'kwh_quantity', 'co2eq_quantity']
+    required_fields = ['supplier', 'start_date', 'end_date', 'kwh_quantity']
     if any(data.get(f) in [None, ""] for f in required_fields):
         return jsonify({"error": "Extractie onvolledig: missende doelvelden. Measurement gediskwalificeerd."}), 422
 
@@ -205,13 +210,13 @@ def api_upload():
         network_joules=data.get('network_joules', 0.0),
         gpu_avg_watts=data.get('gpu_avg_watts', 0.0),
         pue_factor=data.get('pue_factor', 1.1),
-        carbon_intensity_gco2_kwh=data.get('carbon_intensity_gco2_kwh', 167.0),
+        carbon_intensity_gco2_kwh=data.get('carbon_intensity_gco2_kwh', 200.5),
         document_status=data.get('document_status', 'UNKNOWN'),
         supplier=data.get('supplier'),
         start_date=data.get('start_date'),
         end_date=data.get('end_date'),
         kwh_quantity=data.get('kwh_quantity'),
-        co2eq_quantity=data.get('co2eq_quantity')
+        co2eq_quantity=compute_co2eq(data.get('kwh_quantity'))
     )
     db.session.add(m)
     db.session.commit()
@@ -332,9 +337,10 @@ def extract():
         # 5. PUE-correctie toepassen (Google Cloud PUE = 1.1)
         # Totaalformule: energy_corrected = CodeCarbon_raw × 1.25 (Fischer) × PUE
         energy_joules_pue = energy_joules * PUE_CLOUD
+        other_joules = max(energy_joules_pue - gpu_joules - cpu_joules - network_joules, 0.0)
         
         # Carbon intensity: Google Cloud region europe-west1 (België/NL)
-        CARBON_INTENSITY = 167.0  # g CO₂/kWh (ENTSO-E jaargemiddelde België)
+        CARBON_INTENSITY = 200.5  # g CO₂/kWh (meest recente coëfficiënt, 2024)
         
         # 6. Sla direct op in de lokale Measurement API Database
         m = Measurement(
@@ -350,6 +356,7 @@ def extract():
             cpu_joules=cpu_joules,
             dram_joules=dram_joules,
             network_joules=network_joules,
+            other_joules=other_joules,
             gpu_avg_watts=gpu_avg_watts,
             pue_factor=PUE_CLOUD,
             carbon_intensity_gco2_kwh=CARBON_INTENSITY,
@@ -358,11 +365,11 @@ def extract():
             start_date=first_periode.get('start_date'),
             end_date=first_periode.get('end_date'),
             kwh_quantity=first_periode.get('kwh_quantity'),
-            co2eq_quantity=first_periode.get('co2eq_quantity')
+            co2eq_quantity=compute_co2eq(first_periode.get('kwh_quantity'))
         )
         db.session.add(m)
         db.session.commit()
-        
+
         os.remove(filepath)
         
         return jsonify({
@@ -378,6 +385,7 @@ def extract():
                 "cpu_joules": cpu_joules,
                 "dram_joules": dram_joules,
                 "network_joules": network_joules,
+                "other_joules": other_joules,
                 "gpu_avg_watts": gpu_avg_watts,
                 "pue_factor": PUE_CLOUD,
                 "energy_source": energy_source,

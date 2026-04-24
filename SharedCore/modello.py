@@ -3,12 +3,24 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 
+CO2_INTENSITY_G_PER_KWH = 200.5  # Meest recente coëfficiënt (2024)
+
+
+def compute_co2eq(kwh_quantity) -> float | None:
+    """Bereken co2eq_quantity in kg CO₂ op basis van kWh × CO2_INTENSITY_G_PER_KWH."""
+    if kwh_quantity is None:
+        return None
+    try:
+        return round(float(kwh_quantity) * CO2_INTENSITY_G_PER_KWH / 1000, 3)
+    except (TypeError, ValueError):
+        return None
+
+
 class Periode(BaseModel):
     supplier: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     kwh_quantity: Optional[float] = None
-    co2eq_quantity: float = 0.0  # Default 0.0 als niet vermeld op factuur
 
 
 class BachelorProefModel(BaseModel):
@@ -32,10 +44,7 @@ class BachelorProefModel(BaseModel):
     - kwh_quantity: total active energy in kWh for the invoiced billing period only.
       If split by time bands (F1, F2, F3), SUM those kWh values from the "Misure" or
       "Dettaglio dei consumi" section. Do NOT use kWh values from historical/annual summary tables.
-    - co2eq_quantity: CO2 equivalent in kg (Scope 2). If not found, use 0.0.
-
     If supplier, start_date, end_date or kwh_quantity is not present, set it to null.
-    If co2eq_quantity is not present, set it to 0.0.
     Always return exactly one entry in the periodes list."""
 
     periodes: List[Periode] = []
