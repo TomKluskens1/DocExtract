@@ -111,9 +111,22 @@ def parse_args():
         help="Energiemeetmodus voor de PWA-benchmark (standaard: lhm).",
     )
     parser.add_argument(
-        "--pwa-no-headless",
+        "--pwa-steady-chunk-size",
+        type=int,
+        default=30,
+        help="Aantal PWA steady runs per browserbatch vóór reset en nieuw batch-id.",
+    )
+    parser.add_argument(
+        "--pwa-headless",
         action="store_true",
-        help="Start de PWA-benchmark zichtbaar zodat WebGPU in Chromium beschikbaar blijft.",
+        default=False,
+        help="Forceer de PWA-benchmark headless uit te voeren (standaard uit).",
+    )
+    parser.add_argument(
+        "--pwa-no-headless",
+        dest="pwa_headless",
+        action="store_false",
+        help="Start de PWA-benchmark zichtbaar (standaard; compatibiliteitsflag).",
     )
     parser.add_argument(
         "--only",
@@ -265,6 +278,8 @@ def main():
         str(args.warmup_total),
         "--steady-repeats",
         str(args.steady_repeats),
+        "--steady-chunk-size",
+        str(args.pwa_steady_chunk_size),
         "--batch-id",
         pwa_batch_id,
         "--output",
@@ -278,8 +293,8 @@ def main():
         pwa_cmd.extend(["--shuffle-seed", str(args.shuffle_seed)])
     if args.dashboard_export_url:
         pwa_cmd.extend(["--dashboard-export-url", args.dashboard_export_url])
-    if args.pwa_no_headless:
-        pwa_cmd.append("--no-headless")
+    if args.pwa_headless:
+        pwa_cmd.append("--headless")
 
     summary = {
         "created_at": datetime.now(timezone.utc).isoformat(),

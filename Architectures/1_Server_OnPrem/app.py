@@ -7,7 +7,6 @@ from pathlib import Path
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text
-import urllib.request
 
 try:
     from dotenv import load_dotenv
@@ -139,24 +138,6 @@ try:
 except ImportError:
     NVML_AVAILABLE = False
 
-def query_prometheus_metrics(url: str, metric_prefix: str, tag_filter: str = None) -> float:
-    """Query Scaphandre Prometheus exporter voor CPU/DRAM vermogen via RAPL."""
-    try:
-        req = urllib.request.Request(url)
-        with urllib.request.urlopen(req, timeout=1) as response:
-            data = response.read().decode('utf-8')
-            for line in data.splitlines():
-                if line.startswith(metric_prefix):
-                    if tag_filter and tag_filter not in line:
-                        continue
-                    # Value is at the end, separated by space
-                    parts = line.split(' ')
-                    if len(parts) >= 2:
-                        return float(parts[1])
-    except Exception:
-        pass
-    return 0.0
-
 def query_gpu_power_nvml() -> float:
     """Lees GPU-vermogen direct via NVML Python-binding (milliwatt → watt)."""
     if not NVML_AVAILABLE:
@@ -214,29 +195,17 @@ class PowerSampler:
         self.thread = None
 
     def _capture_sample(self):
-        """Neem één instantane sample volgens het meetprotocol (100 ms polling, NVML + Scaphandre)."""
-        cpu_microwatts = query_prometheus_metrics(
-            'http://localhost:8080/metrics', 'scaph_host_power_microwatts'
-        )
-        cpu_watts = cpu_microwatts / 1_000_000.0 if cpu_microwatts > 0 else 0.0
-
-        dram_microwatts = query_prometheus_metrics(
-            'http://localhost:8080/metrics', 'scaph_domain_power_microwatts', 'domain="dram"'
-        )
-        dram_watts = dram_microwatts / 1_000_000.0 if dram_microwatts > 0 else 0.0
-
+        """Neem één instantane GPU-sample via NVML; CPU/RAM volgt via CodeCarbon."""
         gpu_watts = query_gpu_power_nvml() or 0.0
 
         self.samples.append({
             'time': time.time(),
-            'cpu_watts': cpu_watts,
-            'dram_watts': dram_watts,
             'gpu_watts': gpu_watts,
-            'total_watts': cpu_watts + gpu_watts + dram_watts
+            'total_watts': gpu_watts
         })
 
     def _sample_loop(self):
-        """Sample CPU (Scaphandre/RAPL) en GPU (NVML) elke 100ms."""
+        """Sample GPU-vermogen via NVML elke 100ms."""
         while self.running:
             self._capture_sample()
             time.sleep(0.1)  # 100ms polling-interval
@@ -286,15 +255,13 @@ class PowerSampler:
 
         avg_total = sum(s['total_watts'] for s in self.samples) / len(self.samples)
         avg_gpu = sum(s['gpu_watts'] for s in self.samples) / len(self.samples)
-        avg_cpu = sum(s['cpu_watts'] for s in self.samples) / len(self.samples)
-        avg_dram = sum(s['dram_watts'] for s in self.samples) / len(self.samples)
         
         return {
             "duration_s": duration, 
             "total_joules": avg_total * duration, 
             "gpu_joules": avg_gpu * duration,
-            "cpu_joules": avg_cpu * duration,
-            "dram_joules": avg_dram * duration,
+            "cpu_joules": 0.0,
+            "dram_joules": 0.0,
             "avg_total_watts": avg_total,
             "avg_gpu_watts": avg_gpu,
             "sample_count": len(self.samples)

@@ -4,7 +4,8 @@
       "Bash(cd:*)",
       "Bash(find:*)",
       "Bash(grep -E \"\\(modello|\\\\.py$\\)\")",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(python *)"
     ]
   },
   "outputStyle": "default",

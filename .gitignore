@@ -9,6 +9,13 @@ __pycache__/
 .venv/
 venv/
 env/
+.playwright*
+scripts/run_benchmark_onprem_robust.sh
+scripts/generate_presentation_charts_from_results_tex.py
+scripts/generate_ground_truth_expected_fields_full.py
+scripts/compare_server_results_to_ground_truth.py
+scripts/compare_pwa_results_to_ground_truth.py
+scripts/compare_cloud_results_to_ground_truth.py
 
 # Environment variables
 .env
@@ -47,3 +54,12 @@ Thumbs.db
 graphs/*
 scripts/results/*
 *json
+
+# Optie B: lokaal geserveerd ONNX-model (te groot voor git, download via huggingface-cli)
+Architectures/3_PWA_Edge/static/models/
+!Architectures/3_PWA_Edge/static/models/.gitkeep
+
+# Optie B: lokaal geserveerde JS-bundles (transformers.js, pdf.js — download via Invoke-WebRequest)
+Architectures/3_PWA_Edge/static/js/*.js
+Architectures/3_PWA_Edge/static/js/*.mjs
+!Architectures/3_PWA_Edge/static/js/.gitkeep

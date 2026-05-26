@@ -12,6 +12,9 @@ from urllib.parse import urlencode
 from urllib import error, request
 
 
+CO2_INTENSITY_G_PER_KWH = 200.5
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description=(
@@ -213,6 +216,32 @@ def fetch_dashboard_export(dashboard_export_url: str, batch_id: str):
         return response.status, json.loads(raw)
 
 
+def compute_co2eq_fallback(kwh_quantity):
+    if kwh_quantity in (None, ""):
+        return None
+    try:
+        return round(float(kwh_quantity) * CO2_INTENSITY_G_PER_KWH / 1000, 3)
+    except (TypeError, ValueError):
+        return None
+
+
+def enrich_extracted_data_with_co2eq(payload: dict) -> tuple[dict | None, float | None]:
+    extracted_data = payload.get("extracted_data")
+    if isinstance(extracted_data, list):
+        for item in extracted_data:
+            if not isinstance(item, dict):
+                continue
+            if item.get("co2eq_quantity") in (None, ""):
+                item["co2eq_quantity"] = compute_co2eq_fallback(item.get("kwh_quantity"))
+        first_item = next((item for item in extracted_data if isinstance(item, dict)), None)
+        return first_item, compute_co2eq_fallback(first_item.get("kwh_quantity")) if first_item else None
+    if isinstance(extracted_data, dict):
+        if extracted_data.get("co2eq_quantity") in (None, ""):
+            extracted_data["co2eq_quantity"] = compute_co2eq_fallback(extracted_data.get("kwh_quantity"))
+        return extracted_data, extracted_data.get("co2eq_quantity")
+    return None, None
+
+
 def iter_phase_runs(phase: str, pdfs: list[Path], repeats: int) -> Iterable[tuple[str, int, int, int, int, Path]]:
     if repeats <= 0:
         return
@@ -345,6 +374,10 @@ def main():
                 time.sleep(args.retry_wait)
 
         metrics = payload.get("metrics", {}) if isinstance(payload, dict) else {}
+        extracted_item = None
+        fallback_co2eq = None
+        if isinstance(payload, dict):
+            extracted_item, fallback_co2eq = enrich_extracted_data_with_co2eq(payload)
         result = {
             "run_number": run_counter,
             "phase": phase,
@@ -363,6 +396,15 @@ def main():
             "response_time": metrics.get("execution_time_s"),
             "setup_time_s": metrics.get("setup_time_s"),
             "document_status": metrics.get("document_status"),
+            "supplier": extracted_item.get("supplier") if extracted_item else None,
+            "start_date": extracted_item.get("start_date") if extracted_item else None,
+            "end_date": extracted_item.get("end_date") if extracted_item else None,
+            "kwh_quantity": extracted_item.get("kwh_quantity") if extracted_item else None,
+            "co2eq_quantity": (
+                extracted_item.get("co2eq_quantity")
+                if extracted_item and extracted_item.get("co2eq_quantity") not in (None, "")
+                else fallback_co2eq
+            ),
             "payload": payload,
         }
         summary["results"].append(result)

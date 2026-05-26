@@ -22,7 +22,6 @@ class Periode(BaseModel):
     end_date: Optional[str] = None
     kwh_quantity: Optional[float] = None
 
-
 class BachelorProefModel(BaseModel):
     """You are an expert at extracting structured data from Italian utility bills (bollette).
     Extract the following fields and return them as JSON.
@@ -49,11 +48,3 @@ class BachelorProefModel(BaseModel):
 
     periodes: List[Periode] = []
 
-
-# Page validation rules for PageValidator — filter out irrelevant pages before LLM processing
-PAGE_VALIDATION_RULES = [
-    {"patterns": [r"importi riferiti|periodo.*fornitura|fornitura.*dal.*al"], "description": "Billing period declaration"},
-    {"patterns": [r"misur[ea]|lettur[ae]", r"F[123].*kWh|energia attiva"], "description": "Meter readings"},
-    {"patterns": [r"dettaglio dei consumi|servizi di vendita"], "description": "Consumption detail"},
-    {"patterns": [r"totale.*fattura|netto.*pagare|sintesi.*fattura"], "description": "Invoice summary"},
-]

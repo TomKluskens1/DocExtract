@@ -2,21 +2,19 @@
 
 Praktische implementatie voor het bachelorproefonderzoek naar de energie-efficiëntie van AI-gedreven factuurextractie. Het doel is om gestructureerde data uit energiefacturen te extraheren en de ecologische voetafdruk van drie verschillende cloud/edge architecturen te meten en te vergelijken.
 
-**Geëxtraheerde velden:** `supplier`, `start_date`, `end_date`, `kwh_quantity`, `co2eq_quantity`
-
-> Extracties waarbij niet alle 5 velden succesvol worden gevuld, worden automatisch geweigerd (HTTP 422).
+**Geëxtraheerde velden:** `supplier`, `start_date`, `end_date`, `kwh_quantity`
 
 ## De Drie Architectuurvarianten
 
-| # | Variant | Locatie | Hardware | AI-Model | Energiemeting |
-|---|---------|---------|----------|----------|---------------|
-| 1 | **Server On-Premises** | HOGENT Datacenter | NVIDIA A30 GPU | Gemma 3 12B via Ollama | PyNVML @ 100ms + CodeCarbon |
-| 2 | **Serverless Cloud Run** | Google Cloud Run | NVIDIA L4 GPU | Gemma 3 12B via Ollama | CodeCarbon × 1.25 Fischer correction |
-| 3 | **PWA Edge Computing** | Browser / Smartphone | Lokale CPU/GPU | Gemma 3 1B/4B via WebGPU | Firefox Profiler / Android ADB |
+| #   | Variant                  | Locatie              | Hardware       | AI-Model                 | Energiemeting                        |
+| --- | ------------------------ | -------------------- | -------------- | ------------------------ | ------------------------------------ |
+| 1   | **Server On-Premises**   | Leafcloud Server     | NVIDIA A30 GPU | Gemma 3 12B via Ollama   | PyNVML @ 100ms + CodeCarbon          |
+| 2   | **Serverless Cloud Run** | Google Cloud Run     | NVIDIA L4 GPU  | Gemma 3 12B via Ollama   | CodeCarbon × 1.25 Fischer correction |
+| 3   | **PWA Edge Computing**   | Browser / Smartphone | Lokale CPU/GPU | Gemma 3 1B/4B via WebGPU | Firefox Profiler / Android ADB       |
 
 ### 1. On-Premises (`Architectures/1_Server_OnPrem`)
 
-Volledig lokale uitvoering op de HOGENT-server. Het model blijft tussen opeenvolgende requests warm in VRAM, zoals gebruikelijk is voor een klassieke serveropstelling. Energiemeting gebeurt hybride: GPU direct via PyNVML-polling en CPU/DRAM via CodeCarbon, omdat RAPL-passthrough in de VM niet betrouwbaar beschikbaar is.
+Volledig lokale uitvoering op de Leafcloud-server. Het model blijft tussen opeenvolgende requests warm in VRAM, zoals gebruikelijk is voor een klassieke serveropstelling. Energiemeting gebeurt hybride: GPU direct via PyNVML-polling en CPU/DRAM via CodeCarbon, omdat RAPL-passthrough in de VM niet betrouwbaar beschikbaar is.
 
 ### 2. Cloud Run (`Architectures/2_Cloud_Run`)
 
@@ -48,7 +46,8 @@ DocExtract/
 │       ├── requirements.txt
 │       ├── static/
 │       │   ├── sw.js          # Service Worker (offline capability)
-│       │   └── manifest.json
+│       │   ├── manifest.json
+│       │   └── js/            # pdf.mjs, transformers.js
 │       └── DEPLOY_STEPS.md
 ├── SharedCore/
 │   ├── extraction_framework/  # Herbruikbare Ollama- en image-extractors
@@ -127,6 +126,7 @@ python scripts/run_benchmark_onprem.py \
 ```
 
 Die wrapper gebruikt standaard:
+
 - `--base-url http://127.0.0.1:5000`
 - `--architecture HOGENT`
 - `--output benchmark_onprem_results.json`
@@ -142,6 +142,7 @@ python scripts/run_benchmark_parallel.py \
 ```
 
 Voorwaarde:
+
 - `MeasurementDashboard` draait lokaal
 - de SSH-tunnel naar HOGENT staat open op `127.0.0.1:5000`
 - de cloudservice is live bereikbaar
@@ -155,6 +156,100 @@ export ARCHITECTURE=PWA
 python app.py   # → http://localhost:5000 (inferentie draait in de browser)
 ```
 
+## Extractie-pipeline
+
+Hoe een PDF zijn weg vindt naar de geëxtraheerde velden en hoe `modello.py` daarin past:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         POST /extract  (PDF upload)                     │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                    ┌────────────▼────────────┐
+                    │  PyMuPDF (fitz)          │
+                    │  • Detecteer type:       │
+                    │    NATIVE (tekst > 100)  │
+                    │    SCAN  (image-only)    │
+                    │  • Render @ 150 DPI      │
+                    │  • Pagina's → PNG bytes  │
+                    └────────────┬────────────┘
+                                 │  List[{ page_number, image_bytes, ... }]
+                    ┌────────────▼────────────┐
+                    │  ImageExtractor          │
+                    │  SharedCore/extraction_  │
+                    │  framework/extractors/   │
+                    │                          │
+                    │  base64-encode elke PNG  │
+                    │  → inline data-URL       │
+                    └────────────┬────────────┘
+                                 │  content = [image_url, image_url, ...]
+          ┌──────────────────────▼──────────────────────────┐
+          │               modello.py                         │
+          │                                                  │
+          │  BachelorProefModel.__doc__  →  system_prompt   │
+          │  ┌──────────────────────────────────────────┐   │
+          │  │ "You are an expert at extracting         │   │
+          │  │  structured data from Italian utility    │   │
+          │  │  bills. CRITICAL RULES:                  │   │
+          │  │  1. Only extract the INVOICED period     │   │
+          │  │  2. Ignore historical tables             │   │
+          │  │  3. kwh_quantity must match the period   │   │
+          │  │  ..."                                    │   │
+          │  └──────────────────────────────────────────┘   │
+          │                                                  │
+          │  BachelorProefModel  →  response_format (JSON)  │
+          │  ┌─────────────────────────────────────────┐    │
+          │  │ class BachelorProefModel(BaseModel):     │    │
+          │  │   periodes: List[Periode]                │    │
+          │  │                                          │    │
+          │  │ class Periode(BaseModel):                │    │
+          │  │   supplier:     Optional[str]            │    │
+          │  │   start_date:   Optional[str]  YYYY-MM-DD│    │
+          │  │   end_date:     Optional[str]  YYYY-MM-DD│    │
+          │  │   kwh_quantity: Optional[float]          │    │
+          │  └─────────────────────────────────────────┘    │
+          └──────────────────────┬──────────────────────────┘
+                                 │  system_prompt + images + response_format
+                    ┌────────────▼────────────┐
+                    │  OpenAIProvider          │
+                    │  SharedCore/extraction_  │
+                    │  framework/llm_providers/│
+                    │                          │
+                    │  client.beta.chat        │
+                    │  .completions.parse()    │
+                    │  temperature=0.0         │
+                    └────────────┬────────────┘
+                                 │  Ollama /v1/chat/completions
+                    ┌────────────▼────────────┐
+                    │  Gemma 3  (via Ollama)   │
+                    │  12B  — server/cloud     │
+                    │   1B/4B — PWA (WebGPU)  │
+                    └────────────┬────────────┘
+                                 │  BachelorProefModel (Pydantic-validated)
+                    ┌────────────▼────────────┐
+                    │  app.py  — veldextractie │
+                    │                          │
+                    │  periode = periodes[0]   │
+                    │  supplier      ──────────┼──► opgeslagen in DB
+                    │  start_date    ──────────┼──► opgeslagen in DB
+                    │  end_date      ──────────┼──► opgeslagen in DB
+                    │  kwh_quantity  ──────────┼──► opgeslagen in DB
+                    │                          │
+                    │  compute_co2eq(kwh)      │
+                    │  = kwh × 200,5 / 1000    │
+                    │  co2eq_quantity ─────────┼──► opgeslagen in DB
+                    │                          │
+                    │  Alle 4 velden aanwezig? │
+                    │  (supplier, start_date,  │
+                    │   end_date, kwh_quantity)│
+                    │  Nee → retry met strenger│
+                    │  prompt; daarna nog null?│
+                    │  → HTTP 422, niet in DB  │
+                    └──────────────────────────┘
+```
+
+> **Hoe de prompt werkt:** de docstring van `BachelorProefModel` in `modello.py` is letterlijk de `system_prompt` die aan het model wordt meegegeven. Het Pydantic-schema van diezelfde klasse wordt als `response_format` doorgegeven aan de OpenAI-compatibele API, waardoor Ollama/Gemma 3 zijn output dwingend als geldig JSON in dat schema retourneert.
+
 ## Meetprotocol
 
 ### Measurement API
@@ -163,30 +258,30 @@ Elke succesvolle extractie stuurt een uniform JSON-meetobject naar de SQLite-dat
 
 **Gelogde parameters:**
 
-| Categorie | Velden |
-|-----------|--------|
-| Context | `architecture`, `hardware_context`, `model_size`, `document_status` (NATIVE / SCAN) |
-| Timing | `response_time`, `setup_time_s` |
-| Energie | `energy_joules`, `dram_joules`, `network_joules`, `setup_energy_joules` |
-| Resultaat | `supplier`, `start_date`, `end_date`, `kwh_quantity`, `co2eq_quantity` |
+| Categorie | Velden                                                                              |
+| --------- | ----------------------------------------------------------------------------------- |
+| Context   | `architecture`, `hardware_context`, `model_size`, `document_status` (NATIVE / SCAN) |
+| Timing    | `response_time`, `setup_time_s`                                                     |
+| Energie   | `energy_joules`, `dram_joules`, `network_joules`, `setup_energy_joules`             |
+| Resultaat | `supplier`, `start_date`, `end_date`, `kwh_quantity`, `co2eq_quantity`              |
 
 De `GET /api/measurements`-endpoint van elke architectuur geeft diezelfde 5 extractievelden ook expliciet mee in de JSON-respons. Daardoor kan `MeasurementDashboard` ze rechtstreeks ophalen, exporteren en tussen runs/architecturen vergelijken zonder extra parsing uit de database.
 
 ### Vaste Constanten
 
-| Constante | Waarde | Bron |
-|-----------|--------|------|
-| Netwerkkost | 36.000 J/GB (0,01 kWh/GB) | Literatuur |
-| Carbon-intensiteit | 167 g CO₂/kWh | Belgisch/EU-gemiddelde |
-| PDF-resolutie | 150 DPI → PNG → base64 | PyMuPDF |
+| Constante          | Waarde                    | Bron                      |
+| ------------------ | ------------------------- | ------------------------- |
+| Netwerkkost        | 36.000 J/GB (0,01 kWh/GB) | Literatuur                |
+| Carbon-intensiteit | 200,5 g CO₂/kWh           | Italiaans gemiddelde 2024 |
+| PDF-resolutie      | 150 DPI → PNG → base64    | PyMuPDF                   |
 
 ### PUE-factoren per Architectuur
 
-| Architectuur | PUE | Motivatie |
-|--------------|-----|-----------|
-| 1_Server_OnPrem | 1,5 | HOGENT datacenter overhead |
-| 2_Cloud_Run | 1,1 | Google datacenter (hoge efficiëntie) |
-| 3_PWA_Edge | 1,0 | Edge device, geen datacenter overhead |
+| Architectuur    | PUE | Motivatie                             |
+| --------------- | --- | ------------------------------------- |
+| 1_Server_OnPrem | 1,5 | HOGENT datacenter overhead            |
+| 2_Cloud_Run     | 1,1 | Google datacenter (hoge efficiëntie)  |
+| 3_PWA_Edge      | 1,0 | Edge device, geen datacenter overhead |
 
 ## Omgevingsvariabelen
 
@@ -201,4 +296,4 @@ De actieve `.env` wijst naar de Cloud Run Ollama-deployment. Cloud Run service-t
 
 ## Licentie
 
-Ontwikkeld door Tom Kluskens in samenwerking met Turtle Srl voor academisch onderzoek in het kader van de bachelorproef *"AI en energieverbruik in webarchitectuur: Een vergelijking tussen serverless, klassieke infrastructuur en Progressive Web Apps"* aan HOGENT. De basis in `SharedCore` is sterk geherstructureerd naar een service-georiënteerde 3-weg architectuur om de onderzoeksvragen te toetsen.
+Ontwikkeld door Tom Kluskens in samenwerking met Turtle Srl voor academisch onderzoek in het kader van de bachelorproef _"AI en energieverbruik in webarchitectuur: Een vergelijking tussen serverless, klassieke infrastructuur en Progressive Web Apps"_ aan HOGENT. De basis in `SharedCore` is sterk geherstructureerd naar een service-georiënteerde 3-weg architectuur om de onderzoeksvragen te toetsen.

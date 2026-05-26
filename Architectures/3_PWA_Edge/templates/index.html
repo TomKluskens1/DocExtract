@@ -101,13 +101,11 @@
 
     <!-- Warm-up tracker (meetprotocol: 4 warm-up runs) -->
     <div>
-        <strong>Meetprotocol: 4 warm-up runs vóór actieve metingen</strong>
+        <strong>Meetprotocol: 2 warm-up runs vóór actieve metingen</strong>
         <div class="warmup-tracker">
             <span style="font-size:13px;color:#555;">Warm-up:</span>
             <div class="wu-dot" id="wu1" title="Warm-up 1">1</div>
             <div class="wu-dot" id="wu2" title="Warm-up 2">2</div>
-            <div class="wu-dot" id="wu3" title="Warm-up 3">3</div>
-            <div class="wu-dot" id="wu4" title="Warm-up 4">4</div>
             <span id="warmupStatus" style="font-size:13px;color:#555;margin-left:6px;">
                 Klik eerst op "Warm-up uitvoeren" om het model in WebGPU VRAM te laden.
             </span>
@@ -118,7 +116,7 @@
     <div class="upload-area">
         <form id="uploadForm">
             <input type="file" id="pdfFile" accept=".pdf" required><br><br>
-            <button type="button" class="btn btn-green" id="warmupBtn">Warm-up uitvoeren (4×)</button>
+            <button type="button" class="btn btn-green" id="warmupBtn">Warm-up uitvoeren (2×)</button>
             &nbsp;
             <button type="submit" class="btn" id="submitBtn">Start Edge Extractie</button>
         </form>
@@ -187,10 +185,10 @@
 
     // Thesis §5.4: vaste modelkeuze voor reproduceerbare PWA metingen
     const MODEL_ID    = 'onnx-community/gemma-3-1b-it-ONNX';
-    const WARMUP_RUNS = 4;
+    const WARMUP_RUNS = 2;
     const URL_PARAMS  = new URLSearchParams(window.location.search);
     const BATCH_ID    = URL_PARAMS.get('batch_id') || null;
-    const MODEL_DTYPE = 'q4';
+    const MODEL_DTYPE = 'q4f16';
 
     // Thesis: LLM extraheert 4 velden; co2eq_quantity wordt berekend in postCleanExtracted (kwh × 200.5 gCO₂/kWh)
     const SYSTEM_PROMPT = `You are a JSON extraction assistant for Italian energy invoices. You only output valid JSON objects, never arrays or prose.
@@ -204,10 +202,13 @@ Extract exactly these four fields and return only the JSON object:
 }
 
 Rules:
-- supplier: the energy SELLER/VENDOR issuing this invoice. Look for the company in the header, or cues like "fornitore", "societa emittente", "vendita". Prefer names like "Hera", "Repower", "Enel", "Eni" over distribution companies. Never use distribution/grid companies ("Distribuzione", "INRETE", "rete", "pronto intervento", "trasporto") as supplier. Use null if not found.
+- supplier: the energy SELLER/VENDOR issuing this invoice. Look for the company name in the document header (top of the first page) or near cues like "fornitore", "societa emittente", "vendita". Prefer the company that issues the invoice over distribution/grid companies (cues: "Distribuzione", "INRETE", "rete", "pronto intervento", "trasporto" — these are NOT the supplier). Only use a name that literally appears in the evidence. Use null if not clearly found.
 - start_date / end_date: the billing supply period in YYYY-MM-DD. Look for "fornitura da ... a ...", "periodo dal ... al ...", "competenza", or Italian month names like "ottobre 2022". Use null if not found.
 - kwh_quantity: total kWh consumed in this billing period (a number). Ignore meter IDs, historical annual F1/F2/F3 totals, and power ratings in kW. Use null if not found or only Smc given.
-- For missing fields always use null, never omit the key.`;
+- For missing fields always use null, never omit the key.
+- If ALL evidence sections are <none> or empty, return {"supplier": null, "start_date": null, "end_date": null, "kwh_quantity": null}.
+- If the document is not an energy/utility invoice (e.g. waste disposal form, generic invoice with no kWh), return all four fields as null.
+- Never invent values that are not literally present in the evidence. If you have to guess a date, kWh value, or supplier name, use null instead.`;
 
     // ============================================================
     // STATE
@@ -320,7 +321,7 @@ Rules:
             badge.className = 'badge badge-red';
             return false;
         }
-        const adapter = await navigator.gpu.requestAdapter().catch(() => null);
+        const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' }).catch(() => null);
         if (!adapter) {
             badge.textContent = 'Geen adapter — WASM fallback';
             badge.className = 'badge badge-red';
@@ -886,6 +887,9 @@ Rules:
 
         try {
             const mem = navigator.deviceMemory || '?';
+            // Reset performance entries zodat de buffer niet vol raakt over honderden runs
+            // in dezelfde browsersessie en networkBytes per run accuraat blijft.
+            try { performance.clearResourceTimings(); } catch (_) {}
             const networkBytesBefore = getResourceTransferBytes();
             energySessionId = benchmarkMode === 'warmup' ? null : await startEnergySession();
 
